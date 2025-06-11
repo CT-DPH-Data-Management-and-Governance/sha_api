@@ -1,0 +1,27 @@
+[project]
+name = "sha-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Alexander Senetcky", email = "alexander.senetcky@ct.gov" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "bs4>=0.0.2",
+    "dotenv>=0.9.9",
+    "pandas>=2.3.0",
+    "pathlib>=1.0.1",
+    "polars>=1.30.0",
+    "requests>=2.32.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "python-dotenv>=1.1.0",
+]

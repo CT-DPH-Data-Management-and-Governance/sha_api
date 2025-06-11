@@ -1,7 +1,6 @@
-# Python Development Project
+# sha_api
 
-This is a development container template for basic python development p
-rojects for use with GitHub Codespaces.
+Condensing some code across the repos as a library.
 
 ## Contents
 
