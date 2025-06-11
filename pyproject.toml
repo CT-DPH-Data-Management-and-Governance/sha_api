@@ -1,5 +1,5 @@
 [project]
-name = "api-data-ops"
+name = "api_data_ops"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
