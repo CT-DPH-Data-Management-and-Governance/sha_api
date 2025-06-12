@@ -37,4 +37,3 @@ def read_acs_var_html(year: int, acs_type: int) -> pl.LazyFrame:
     )
 
     return lf
-
