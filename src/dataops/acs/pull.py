@@ -45,11 +45,15 @@ def json_to_long(json) -> pl.DataFrame | None:
 # WIP
 # TODO: account for multiple domains
 def fetch_all_data(
-    domain: str | list, endpoints: str | list, format: str = "wide"
+    domain: str | list,
+    endpoints: str | list,
+    token: str,
+    format: str = "wide",
 ) -> dict:
     """Fetch data from all endpoints and return a dict of wide DataFrames."""
     all_data = {}
     with requests.Session() as session:
+        session.headers.update({"Authorization": token})
         for endpoint in endpoints:
             url = f"{domain}{endpoint}"
             json = fetch_json(session, url)
