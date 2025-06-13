@@ -1,6 +1,7 @@
 from pathlib import Path
 import polars as pl
 
+# TODO move this to models as a class
 
 def parse_url(targeturl: str | list[str]) -> pl.LazyFrame:
     """Convert url into a LazyFrame with metadata
