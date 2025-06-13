@@ -1,4 +1,5 @@
 import os
+
 # import asyncio
 import requests
 import httpx  # Added for async requests
@@ -138,28 +139,63 @@ class CensusAPIEndpoint(BaseModel):
         [SYNC] Fetches data using 'requests' and returns it as a Polars DataFrame.
         """
         print(f"[SYNC] Fetching data from: {self.dataset}")
-        try:
-            response = requests.get(self.full_url, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            if not data or len(data) < 2:
-                print(f"Warning: API for {self.dataset} returned no data.")
-                return pl.DataFrame()
-            headers, records = data[0], data[1:]
-            df = pl.DataFrame(records, schema=headers)
-            # for col in df.columns:
-            #     try:
-            #         df = df.with_columns(df[col].cast(pl.Int64, strict=False))
-            #     except pl.ComputeError:
-            #         df = df.with_columns(df[col].cast(pl.Float64, strict=False))
-            return df
-        except requests.exceptions.HTTPError as http_err:
-            print(
-                f"HTTP error occurred for {self.dataset}: {http_err} | Content: {response.text}"
-            )
-        except Exception as e:
-            print(f"An unexpected error occurred for {self.dataset}: {e}")
-        return pl.DataFrame()
+
+        if "acs" in self.dataset:
+            try:
+                response = requests.get(self.full_url, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+                if not data or len(data) < 2:
+                    print(f"Warning: API for {self.dataset} returned no data.")
+                df = pl.DataFrame({"headers": data[0], "records": data[1]})
+                return df
+            except requests.exceptions.HTTPError as http_err:
+                print(
+                    f"HTTP error occurred for {self.dataset}: {http_err} | Content: {response.text}"
+                )
+            except Exception as e:
+                print(f"An unexpected error occurred for {self.dataset}: {e}")
+        else:
+            try:
+                response = requests.get(self.full_url, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+                if not data:
+                    print(f"Warning: API for {self.dataset} returned no data.")
+                    return pl.DataFrame()
+                headers, records = data[0], data[1:]
+                df = pl.DataFrame(records, schema=headers)
+                # for col in df.columns:
+                #     try:
+                #         df = df.with_columns(df[col].cast(pl.Int64, strict=False))
+                #     except pl.ComputeError:
+                #         df = df.with_columns(df[col].cast(pl.Float64, strict=False))
+                return df
+            except requests.exceptions.HTTPError as http_err:
+                print(
+                    f"HTTP error occurred for {self.dataset}: {http_err} | Content: {response.text}"
+                )
+            except Exception as e:
+                print(f"An unexpected error occurred for {self.dataset}: {e}")
+            return pl.DataFrame()
+
+
+# testing
+user_url = "https://api.census.gov/data/2021/acs/acs1?get=NAME,B01001_001E&for=us:1"
+
+
+parsed_url = CensusAPIEndpoint.from_url(user_url)
+
+parsed_url
+
+
+data = parsed_url.fetch_data_to_polars()
+
+data
+
+
+# probably better to keep this simple - just use system threads
+
 
 #     async def fetch_data_async(self, client: httpx.AsyncClient) -> pl.DataFrame:
 #         """
