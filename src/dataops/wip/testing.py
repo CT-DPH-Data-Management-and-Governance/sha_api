@@ -89,6 +89,9 @@ test3 = CensusAPIEndpoint.from_url(test3)
 test3_labels = test3.fetch_variable_labels()
 test3_data = test3.fetch_data_to_polars()
 
+test3.fetch_variable_labels().select(pl.col("concept").unique())
+
+
 test3.fetch_tidy_data()
 
 
@@ -150,3 +153,37 @@ cd = parsed_url.fetch_data()
 cd
 
 cd.variable_metadata
+
+
+endpoint = (
+    "https://api.census.gov/data/2023/acs/acs1?get=group(B25044)&ucgid=0400000US09"
+)
+
+endpoint = CensusAPIEndpoint.from_url(endpoint)
+
+tidy = endpoint.fetch_tidy_data()
+concept = endpoint.concept.lower()
+
+
+tidy.head()
+
+
+tidy.with_columns(
+    pl.col("variable_name")
+    .str.replace(concept, "")
+    .str.replace("estimates", "")
+    .str.strip_chars()
+    .alias("variable_name"),
+    pl.when(pl.col("value_type") == pl.lit("E"))
+    .then(pl.lit("estimate"))
+    .when(pl.col("value_type") == pl.lit("M"))
+    .then(pl.lit("margin_of_error"))
+    .when(pl.col("value_type") == pl.lit("P"))
+    .then(pl.lit("percent_estimate"))
+    .when(pl.col("value_type") == pl.lit("PM"))
+    .then(pl.lit("percent_margin_of_error"))
+    .when(pl.col("value_type") == pl.lit("N"))
+    .then(pl.lit("count"))
+    .otherwise(pl.lit("unknown"))
+    .alias("value_type"),
+).pivot("value_type", index="variable_name", values="value")
