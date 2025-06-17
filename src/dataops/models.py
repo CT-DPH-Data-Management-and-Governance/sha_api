@@ -246,6 +246,7 @@ class CensusAPIEndpoint(BaseModel):
     #     except Exception as e:
     #         print(f"An unexpected error for {self.dataset}: {e}")
     #     return CensusData(pl.DataFrame())
+
     def fetch_all_variable_labels(self) -> pl.DataFrame:
         """
         Fetches all the variable labels found at
