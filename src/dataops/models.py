@@ -260,8 +260,6 @@ class CensusAPIEndpoint(BaseModel):
         Polars DataFrame.
         """
 
-        print(f"Fetching data from: {self.variable_url}")
-
         response = requests.get(self.variable_url, timeout=30)
         response.raise_for_status()
 
@@ -275,7 +273,6 @@ class CensusAPIEndpoint(BaseModel):
         api endpoint, filters it to only the relevant variables
         and returns it as a Polars DataFrame.
         """
-        print(f"Fetching data from: {self.variable_url}")
 
         response = requests.get(self.variable_url, timeout=30)
         response.raise_for_status()
@@ -306,7 +303,6 @@ class CensusAPIEndpoint(BaseModel):
 
     def fetch_data_to_polars(self) -> pl.DataFrame:
         """Fetches data and returns it as a Polars DataFrame."""
-        print(f"Fetching data from: {self.dataset}")
 
         if "acs" in self.dataset:
             try:
