@@ -278,7 +278,7 @@ class CensusAPIEndpoint(BaseModel):
             pl.DataFrame({"vars": self.variables})
             .with_columns(
                 pl.col("vars")
-                .str.replace_all("\(|\)", " ")
+                .str.replace_all("\\(|\\)", " ")
                 .str.strip_chars()
                 .str.split(by=" ")
             )

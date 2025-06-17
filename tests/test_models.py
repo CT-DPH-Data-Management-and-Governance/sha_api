@@ -1,5 +1,4 @@
 import pytest
-import polars as pl
 from pydantic import ValidationError
 
 # Adjust this import based on your library's structure.
