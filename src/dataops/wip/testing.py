@@ -110,22 +110,34 @@ joined_data3 = (
         pl.col("records"),
         pl.col("headers"),
     )
-    .drop_nulls(pl.col("records"))
 )
 
 joined_data3
 
 
-joined_data3.with_columns(
-    pl.when(pl.col("headers") == "NAME")
-    .then(pl.lit("name"))
-    .when(pl.col("headers") == "GEO_ID")
-    .then(pl.lit("geoid"))
-    .otherwise(pl.col("variable_name"))
-    .alias("variable_name"),
-    pl.col("records").cast(pl.Float32, strict=False).alias("record_value"),
-).filter(pl.col("record_value") > -555555555).drop_nulls(pl.col("record_value"))
+cleaner = (
+    joined_data3.with_columns(
+        pl.when(pl.col("headers") == "NAME")
+        .then(pl.lit("name"))
+        .when(pl.col("headers") == "GEO_ID")
+        .then(pl.lit("geoid"))
+        .otherwise(pl.col("variable_name"))
+        .alias("variable_name"),
+        pl.col("records").cast(pl.Float32, strict=False).alias("value"),
+    )
+    .with_columns(
+        pl.col("variable_name").fill_null(strategy="forward"),
+        pl.col("headers").str.slice(-2).str.replace_all(r"\d", "").alias("value_type"),
+    )
+    .filter(pl.col("value") > -555555555)
+    .drop_nulls(pl.col("value"))
+    .with_row_index(name="id")
+    .select(["id", "variable_name", "value", "value_type"])
+)
 
+
+cleaner.write_csv("cleaner.csv")
+cleaner.write_parquet("cleaner.parquet")
 
 df = parsed_url.fetch_data_to_polars()
 
