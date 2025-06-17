@@ -254,12 +254,26 @@ class CensusAPIEndpoint(BaseModel):
         response = requests.get(self.variable_url, timeout=30)
         response.raise_for_status()
 
+        vars = (
+            pl.DataFrame({"vars": self.variables})
+            .with_columns(
+                pl.col("vars")
+                .str.replace_all("\(|\)", " ")
+                .str.strip_chars()
+                .str.split(by=" ")
+            )
+            .select("vars")
+            .to_series()
+            .explode()
+            .to_list()
+        )
+
         data = response.json()
         data = (
             pl.from_dicts(data)
             .transpose(column_names="column_0")
             .lazy()
-            .filter(pl.col("name").str.contains_any(self.variables))
+            .filter(pl.col("name").str.contains_any(vars))
             .collect()
         )
         return data
