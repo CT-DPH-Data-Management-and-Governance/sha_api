@@ -225,6 +225,12 @@ class CensusAPIEndpoint(BaseModel):
         """Constructs the variable API URL from the full url."""
         return f"{self.base_url}/{self.year}/{self.dataset}/variables"
 
+    @computed_field
+    @property
+    def concept(self) -> str:
+        """Endpoint concept"""
+        return self.fetch_variable_labels().select(pl.col("concept").unique()).item()
+
     # --- Data Fetching Methods ---
     # def fetch_data(self) -> CensusData:  # Changed return type
     #     """[SYNC] Fetches data and returns it as a CensusData object."""
