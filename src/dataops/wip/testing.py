@@ -89,6 +89,9 @@ test3 = CensusAPIEndpoint.from_url(test3)
 test3_labels = test3.fetch_variable_labels()
 test3_data = test3.fetch_data_to_polars()
 
+test3.fetch_tidy_data()
+
+
 joined_data3 = (
     test3_data.join(test3_labels, left_on="headers", right_on="name", how="left")
     .with_columns(
