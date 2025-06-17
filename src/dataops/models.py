@@ -246,9 +246,28 @@ class CensusAPIEndpoint(BaseModel):
     #     except Exception as e:
     #         print(f"An unexpected error for {self.dataset}: {e}")
     #     return CensusData(pl.DataFrame())
+    def fetch_all_variable_labels(self) -> pl.DataFrame:
+        """
+        Fetches all the variable labels found at
+        the related api endpoint and returns it as a
+        Polars DataFrame.
+        """
+
+        print(f"Fetching data from: {self.variable_url}")
+
+        response = requests.get(self.variable_url, timeout=30)
+        response.raise_for_status()
+
+        data = response.json()
+        data = pl.from_dicts(data).transpose(column_names="column_0")
+        return data
 
     def fetch_variable_labels(self) -> pl.DataFrame:
-        """Fetches the variable labels and returns it as a Polars DataFrame"""
+        """
+        Fetches the variable labels related to the specific
+        api endpoint, filters it to only the relevant variables
+        and returns it as a Polars DataFrame.
+        """
         print(f"Fetching data from: {self.variable_url}")
 
         response = requests.get(self.variable_url, timeout=30)
