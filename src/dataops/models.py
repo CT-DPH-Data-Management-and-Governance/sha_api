@@ -219,6 +219,12 @@ class CensusAPIEndpoint(BaseModel):
         req = requests.Request("GET", url_path, params=params)
         return req.prepare().url
 
+    @computed_field
+    @property
+    def variable_url(self) -> str:
+        """Constructs the variable API URL from the full url."""
+        return f"{self.base_url}/{self.year}/{self.dataset}/variables"
+
     # --- Data Fetching Methods ---
     # def fetch_data(self) -> CensusData:  # Changed return type
     #     """[SYNC] Fetches data and returns it as a CensusData object."""
@@ -241,9 +247,26 @@ class CensusAPIEndpoint(BaseModel):
     #         print(f"An unexpected error for {self.dataset}: {e}")
     #     return CensusData(pl.DataFrame())
 
+    def fetch_variable_labels(self) -> pl.DataFrame:
+        """Fetches the variable labels and returns it as a Polars DataFrame"""
+        print(f"Fetching data from: {self.variable_url}")
+
+        response = requests.get(self.variable_url, timeout=30)
+        response.raise_for_status()
+
+        data = response.json()
+        data = (
+            pl.from_dicts(data)
+            .transpose(column_names="column_0")
+            .lazy()
+            .filter(pl.col("name").str.contains_any(self.variables))
+            .collect()
+        )
+        return data
+
     def fetch_data_to_polars(self) -> pl.DataFrame:
-        """[SYNC] Fetches data and returns it as a Polars DataFrame."""
-        print(f"[THREAD] Fetching data from: {self.dataset}")
+        """Fetches data and returns it as a Polars DataFrame."""
+        print(f"Fetching data from: {self.dataset}")
 
         if "acs" in self.dataset:
             try:
