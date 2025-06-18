@@ -266,7 +266,7 @@ class CensusAPIEndpoint(BaseModel):
         labels = self.fetch_variable_labels().drop("date_pulled").lazy()
         data = self.fetch_data_to_polars().drop("date_pulled").lazy()
 
-        # level of geography inside of dataset
+        # ensure geos are formatted the same way for everything
         geos = (
             data.with_columns(pl.col("headers").str.to_lowercase())
             .filter(
@@ -284,80 +284,80 @@ class CensusAPIEndpoint(BaseModel):
             .transpose(column_names="headers")
         )
 
+        def ensure_column_exists(
+            df: pl.DataFrame,
+            column_name: List[str] = ["geo_id", "ucgid", "geo_name"],
+            default_value: any = "unknown",
+        ) -> pl.DataFrame:
+            for column_name in column_name:
+                if column_name not in df.columns:
+                    df = df.with_columns(pl.lit(default_value).alias(column_name))
+
+            return df
+
+        geos = ensure_column_exists(geos).select(["geo_id", "ucgid", "geo_name"])
+
+        # ensure data are presented same way everytime
         tidy = (
-            (
-                data.join(
-                    labels,
-                    left_on="headers",
-                    right_on="name",
-                    how="left",
-                )
-                .with_columns(
-                    pl.col("label")
-                    .str.replace_all("!|:", " ")
-                    .str.replace_all(r"\s+", " ")
-                    .str.strip_chars()
-                    .str.to_lowercase(),
-                    pl.col("concept").str.to_lowercase(),
-                )
-                .with_columns(
-                    pl.concat_str(
-                        [pl.col("concept"), pl.col("label")], separator=" "
-                    ).alias("variable_name")
-                )
-                .with_columns(
-                    pl.when(pl.col("headers") == "NAME")
-                    .then(pl.lit("name"))
-                    .when(pl.col("headers") == "GEO_ID")
-                    .then(pl.lit("geoid"))
-                    .otherwise(pl.col("variable_name"))
-                    .alias("variable_name"),
-                    pl.col("records").cast(pl.Float32, strict=False).alias("value"),
-                )
-                .with_columns(
-                    pl.col("variable_name").fill_null(strategy="forward"),
-                    pl.col("headers")
-                    .str.slice(-2)
-                    .str.replace_all(r"\d", "")
-                    .alias("value_type"),
-                    pl.col("headers").alias("variable_id"),
-                )
-                .filter(pl.col("value") > -555555555)  # drop suppressed rows
-                .drop_nulls(pl.col("value"))  # drops rows like "***" or (X) post-cast
-                .with_row_index(name="row_id")
-                .with_columns(
-                    pl.col("variable_name")
-                    .str.replace(self.concept, "")
-                    .str.replace("estimates", "")
-                    .str.strip_chars()
-                    .alias("variable_name"),
-                    pl.when(pl.col("value_type") == pl.lit("E"))
-                    .then(pl.lit("estimate"))
-                    .when(pl.col("value_type") == pl.lit("M"))
-                    .then(pl.lit("margin_of_error"))
-                    .when(pl.col("value_type") == pl.lit("P"))
-                    .then(pl.lit("percent_estimate"))
-                    .when(pl.col("value_type") == pl.lit("PM"))
-                    .then(pl.lit("percent_margin_of_error"))
-                    .when(pl.col("value_type") == pl.lit("N"))
-                    .then(pl.lit("count"))
-                    .otherwise(pl.lit("unknown"))
-                    .alias("value_type"),
-                )
-                .select(
-                    [
-                        "row_id",
-                        "variable_id",
-                        "variable_name",
-                        "value",
-                        "value_type",
-                    ]
-                )
+            data.join(
+                labels,
+                left_on="headers",
+                right_on="name",
+                how="left",
+            )
+            .with_columns(
+                pl.col("label")
+                .str.replace_all("!|:", " ")
+                .str.replace_all(r"\s+", " ")
+                .str.strip_chars()
+                .str.to_lowercase()
+                .alias("variable_name"),
+                pl.col("concept").str.to_lowercase(),
+            )
+            .with_columns(
+                pl.when(pl.col("headers") == "NAME")
+                .then(pl.lit("name"))
+                .when(pl.col("headers") == "GEO_ID")
+                .then(pl.lit("geoid"))
+                .otherwise(pl.col("variable_name"))
+                .alias("variable_name"),
+                pl.col("records").cast(pl.Float32, strict=False).alias("value"),
+            )
+            .with_columns(
+                pl.col("variable_name").fill_null(strategy="forward"),
+                pl.col("headers")
+                .str.slice(-2)
+                .str.replace_all(r"\d", "")
+                .alias("value_type"),
+                pl.col("headers").alias("variable_id"),
+            )
+            .filter(pl.col("value") > -555555555)  # drop suppressed rows
+            .drop_nulls(pl.col("value"))  # drops rows like "***" or (X) post-cast
+            .with_row_index(name="row_id")
+            .with_columns(
+                pl.col("variable_name")
+                .str.replace(self.concept, "")
+                .str.replace("estimates", "")
+                .str.strip_chars()
+                .alias("variable_name"),
+                pl.when(pl.col("value_type") == pl.lit("E"))
+                .then(pl.lit("estimate"))
+                .when(pl.col("value_type") == pl.lit("M"))
+                .then(pl.lit("margin_of_error"))
+                .when(pl.col("value_type") == pl.lit("P"))
+                .then(pl.lit("percent_estimate"))
+                .when(pl.col("value_type") == pl.lit("PM"))
+                .then(pl.lit("percent_margin_of_error"))
+                .when(pl.col("value_type") == pl.lit("N"))
+                .then(pl.lit("count"))
+                .otherwise(pl.col("value_type"))
+                .alias("value_type"),
             )
             .select(
                 pl.col("row_id"),
                 pl.lit(self.dataset).alias("dataset"),
                 pl.lit(self.year).alias("year"),
+                pl.col("concept"),
                 pl.col("variable_id"),
                 pl.col("variable_name"),
                 pl.col("value"),
@@ -366,30 +366,33 @@ class CensusAPIEndpoint(BaseModel):
             .collect()
         )
 
-        if not geos.is_empty():
-            tidy = (
-                pl.concat([tidy, geos], how="horizontal")
-                .select(
-                    pl.col(
-                        [
-                            "row_id",
-                            "dataset",
-                            "year",
-                        ]
-                    ),
-                    pl.col(geos.columns),
-                    pl.col(
-                        [
-                            "variable_id",
-                            "variable_name",
-                            "value",
-                            "value_type",
-                        ]
-                    ),
-                )
-                .with_columns(pl.all().fill_null(strategy="forward"))
+        # attached geos and rearrange cols
+        tidy = (
+            pl.concat([tidy, geos], how="horizontal")
+            .select(
+                pl.col(
+                    [
+                        "row_id",
+                        "dataset",
+                        "year",
+                        "concept",
+                        "geo_id",
+                        "ucgid",
+                        "geo_name",
+                        "variable_id",
+                        "variable_name",
+                        "value",
+                        "value_type",
+                    ]
+                ),
             )
-        return tidy.with_columns(date_pulled=datetime.now())
+            .with_columns(
+                pl.all().fill_null(strategy="forward"),
+                full_url=pl.lit(self.full_url),
+                date_pulled=datetime.now(),
+            )
+        )
+        return tidy
 
     # def fetch_data(self) -> CensusData:  # Changed return type
     #     """[SYNC] Fetches data and returns it as a CensusData object."""
