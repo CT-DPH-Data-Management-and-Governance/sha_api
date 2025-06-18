@@ -12,9 +12,11 @@ from pydantic import (
 )
 from typing import List, Optional, Annotated
 from urllib.parse import urlparse, parse_qs
+from dotenv import load_dotenv
 # import re
 
-# --- Best Practice: Load secrets like API keys from environment variables ---
+load_dotenv()
+
 CENSUS_API_KEY = os.getenv("CENSUS_API_KEY")
 
 
