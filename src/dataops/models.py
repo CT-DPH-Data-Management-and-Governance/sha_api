@@ -136,6 +136,18 @@ class CensusAPIEndpoint(BaseModel):
 
     @computed_field
     @property
+    def table_type(self) -> str:
+        dataset_parts = self.dataset.strip("/").split("/")
+        last = dataset_parts[-1]
+        middle = dataset_parts[1]
+
+        if last == middle:
+            return "not_table"
+        else:
+            return last
+
+    @computed_field
+    @property
     def concept(self) -> str:
         """Endpoint concept"""
         return self.fetch_variable_labels().select(pl.col("concept").unique()).item()
