@@ -255,6 +255,24 @@ class CensusAPIEndpoint(BaseModel):
 
         labels = self.fetch_variable_labels().lazy()
         data = self.fetch_data_to_polars().lazy()
+        geos = (
+            self.fetch_data_to_polars()
+            .lazy()
+            .with_columns(pl.col("headers").str.to_lowercase())
+            .filter(
+                pl.col("headers").eq("geo_id")
+                | pl.col("headers").eq("name")
+                | pl.col("headers").eq("ucgid")
+            )
+            .with_columns(
+                pl.when(pl.col("headers").eq("name"))
+                .then(pl.lit("geo_name"))
+                .otherwise(pl.col("headers"))
+                .alias("headers")
+            )
+            .collect()
+            .transpose(column_names="headers")
+        )
 
         tidy = (
             (
@@ -336,6 +354,28 @@ class CensusAPIEndpoint(BaseModel):
                 pl.col("value"),
                 pl.col("value_type"),
             )
+        )
+        tidy = (
+            pl.concat([tidy, geos], how="horizontal")
+            .select(
+                pl.col(
+                    [
+                        "row_id",
+                        "dataset",
+                        "year",
+                    ]
+                ),
+                pl.col(geos.columns),
+                pl.col(
+                    [
+                        "variable_id",
+                        "variable_name",
+                        "value",
+                        "value_type",
+                    ]
+                ),
+            )
+            .with_columns(pl.all().fill_null(strategy="forward"))
         )
         return tidy
 
