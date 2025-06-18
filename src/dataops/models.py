@@ -141,26 +141,6 @@ class CensusAPIEndpoint(BaseModel):
         return self.fetch_variable_labels().select(pl.col("concept").unique()).item()
 
     # --- Data Fetching Methods ---
-    # def fetch_data(self) -> CensusData:  # Changed return type
-    #     """[SYNC] Fetches data and returns it as a CensusData object."""
-    #     print(f"[THREAD] Fetching data from: {self.dataset}")
-    #     try:
-    #         response = requests.get(self.full_url, timeout=30)
-    #         response.raise_for_status()
-    #         data = response.json()
-    #         if not data or len(data) < 2:
-    #             print(f"Warning: API for {self.dataset} returned no data.")
-    #             return CensusData(pl.DataFrame())
-    #         headers, records = data[0], data[1:]
-    #         df = pl.DataFrame(records, schema=headers, orient="row")
-    #         # Add a source column to identify where the data came from
-    #         df = df.with_columns(pl.lit(self.dataset).alias("source_dataset"))
-    #         return CensusData(df)  # Return the wrapped object
-    #     except requests.exceptions.HTTPError as e:
-    #         print(f"HTTP error for {self.dataset}: {e}")
-    #     except Exception as e:
-    #         print(f"An unexpected error for {self.dataset}: {e}")
-    #     return CensusData(pl.DataFrame())
 
     def fetch_all_variable_labels(self) -> pl.DataFrame:
         """
@@ -190,6 +170,7 @@ class CensusAPIEndpoint(BaseModel):
         response = requests.get(self.variable_url, timeout=30)
         response.raise_for_status()
 
+        # create var search list
         vars = (
             pl.DataFrame({"vars": self.variables})
             .with_columns(
@@ -205,6 +186,8 @@ class CensusAPIEndpoint(BaseModel):
         )
 
         data = response.json()
+
+        # filter endpoint variables to only those in search list
         data = (
             pl.from_dicts(data)
             .transpose(column_names="column_0")
@@ -222,39 +205,55 @@ class CensusAPIEndpoint(BaseModel):
             try:
                 response = requests.get(self.full_url, timeout=30)
                 response.raise_for_status()
+
                 data = response.json()
+
+                # acs data comes in a list of 2 LONG jsons
                 if not data or len(data) < 2:
                     print(f"Warning: API for {self.dataset} returned no data.")
+
                 df = pl.DataFrame(
                     {"headers": data[0], "records": data[1]}
                 ).with_columns(date_pulled=datetime.now())
 
                 return df
+
             except requests.exceptions.HTTPError as http_err:
                 print(
                     f"HTTP error occurred for {self.dataset}: {http_err} | Content: {response.text}"
                 )
+
             except Exception as e:
                 print(f"An unexpected error occurred for {self.dataset}: {e}")
+
         else:
             try:
                 response = requests.get(self.full_url, timeout=30)
                 response.raise_for_status()
+
                 data = response.json()
+
                 if not data:
                     print(f"Warning: API for {self.dataset} returned no data.")
                     return pl.DataFrame()
+
+                # non-acs data are a json of headers, and then a json of arrays
                 headers, records = data[0], data[1:]
+
                 df = pl.DataFrame(records, schema=headers).with_columns(
                     date_pulled=datetime.now()
                 )
+
                 return df
+
             except requests.exceptions.HTTPError as http_err:
                 print(
                     f"HTTP error occurred for {self.dataset}: {http_err} | Content: {response.text}"
                 )
+
             except Exception as e:
                 print(f"An unexpected error occurred for {self.dataset}: {e}")
+
             return pl.DataFrame()
 
     def fetch_tidy_data(self) -> pl.DataFrame:
@@ -264,12 +263,12 @@ class CensusAPIEndpoint(BaseModel):
         as a polars dataframe.
         """
 
-        labels = self.fetch_variable_labels().lazy()
-        data = self.fetch_data_to_polars().lazy()
+        labels = self.fetch_variable_labels().drop("date_pulled").lazy()
+        data = self.fetch_data_to_polars().drop("date_pulled").lazy()
+
+        # level of geography inside of dataset
         geos = (
-            self.fetch_data_to_polars()
-            .lazy()
-            .with_columns(pl.col("headers").str.to_lowercase())
+            data.with_columns(pl.col("headers").str.to_lowercase())
             .filter(
                 pl.col("headers").eq("geo_id")
                 | pl.col("headers").eq("name")
@@ -355,7 +354,6 @@ class CensusAPIEndpoint(BaseModel):
                     ]
                 )
             )
-            .collect()
             .select(
                 pl.col("row_id"),
                 pl.lit(self.dataset).alias("dataset"),
@@ -365,32 +363,54 @@ class CensusAPIEndpoint(BaseModel):
                 pl.col("value"),
                 pl.col("value_type"),
             )
+            .collect()
         )
-        tidy = (
-            pl.concat([tidy, geos], how="horizontal")
-            .select(
-                pl.col(
-                    [
-                        "row_id",
-                        "dataset",
-                        "year",
-                    ]
-                ),
-                pl.col(geos.columns),
-                pl.col(
-                    [
-                        "variable_id",
-                        "variable_name",
-                        "value",
-                        "value_type",
-                    ]
-                ),
+
+        if not geos.is_empty():
+            tidy = (
+                pl.concat([tidy, geos], how="horizontal")
+                .select(
+                    pl.col(
+                        [
+                            "row_id",
+                            "dataset",
+                            "year",
+                        ]
+                    ),
+                    pl.col(geos.columns),
+                    pl.col(
+                        [
+                            "variable_id",
+                            "variable_name",
+                            "value",
+                            "value_type",
+                        ]
+                    ),
+                )
+                .with_columns(pl.all().fill_null(strategy="forward"))
             )
-            .with_columns(
-                pl.all().fill_null(strategy="forward"), date_pulled=datetime.now()
-            )
-        )
-        return tidy
+        return tidy.with_columns(date_pulled=datetime.now())
+
+    # def fetch_data(self) -> CensusData:  # Changed return type
+    #     """[SYNC] Fetches data and returns it as a CensusData object."""
+    #     print(f"[THREAD] Fetching data from: {self.dataset}")
+    #     try:
+    #         response = requests.get(self.full_url, timeout=30)
+    #         response.raise_for_status()
+    #         data = response.json()
+    #         if not data or len(data) < 2:
+    #             print(f"Warning: API for {self.dataset} returned no data.")
+    #             return CensusData(pl.DataFrame())
+    #         headers, records = data[0], data[1:]
+    #         df = pl.DataFrame(records, schema=headers, orient="row")
+    #         # Add a source column to identify where the data came from
+    #         df = df.with_columns(pl.lit(self.dataset).alias("source_dataset"))
+    #         return CensusData(df)  # Return the wrapped object
+    #     except requests.exceptions.HTTPError as e:
+    #         print(f"HTTP error for {self.dataset}: {e}")
+    #     except Exception as e:
+    #         print(f"An unexpected error for {self.dataset}: {e}")
+    #     return CensusData(pl.DataFrame())
 
 
 # class CensusData:
