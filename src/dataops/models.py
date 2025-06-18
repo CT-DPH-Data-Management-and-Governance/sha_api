@@ -13,6 +13,7 @@ from pydantic import (
 from typing import List, Optional, Annotated
 from urllib.parse import urlparse, parse_qs
 from dotenv import load_dotenv
+from datetime import datetime
 # import re
 
 load_dotenv()
@@ -172,7 +173,11 @@ class CensusAPIEndpoint(BaseModel):
         response.raise_for_status()
 
         data = response.json()
-        data = pl.from_dicts(data).transpose(column_names="column_0")
+        data = (
+            pl.from_dicts(data)
+            .transpose(column_names="column_0")
+            .with_columns(date_pulled=datetime.now())
+        )
         return data
 
     def fetch_variable_labels(self) -> pl.DataFrame:
@@ -205,6 +210,7 @@ class CensusAPIEndpoint(BaseModel):
             .transpose(column_names="column_0")
             .lazy()
             .filter(pl.col("name").str.contains_any(vars))
+            .with_columns(date_pulled=datetime.now())
             .collect()
         )
         return data
@@ -219,7 +225,10 @@ class CensusAPIEndpoint(BaseModel):
                 data = response.json()
                 if not data or len(data) < 2:
                     print(f"Warning: API for {self.dataset} returned no data.")
-                df = pl.DataFrame({"headers": data[0], "records": data[1]})
+                df = pl.DataFrame(
+                    {"headers": data[0], "records": data[1]}
+                ).with_columns(date_pulled=datetime.now())
+
                 return df
             except requests.exceptions.HTTPError as http_err:
                 print(
@@ -236,7 +245,9 @@ class CensusAPIEndpoint(BaseModel):
                     print(f"Warning: API for {self.dataset} returned no data.")
                     return pl.DataFrame()
                 headers, records = data[0], data[1:]
-                df = pl.DataFrame(records, schema=headers)
+                df = pl.DataFrame(records, schema=headers).with_columns(
+                    date_pulled=datetime.now()
+                )
                 return df
             except requests.exceptions.HTTPError as http_err:
                 print(
@@ -375,7 +386,9 @@ class CensusAPIEndpoint(BaseModel):
                     ]
                 ),
             )
-            .with_columns(pl.all().fill_null(strategy="forward"))
+            .with_columns(
+                pl.all().fill_null(strategy="forward"), date_pulled=datetime.now()
+            )
         )
         return tidy
 
