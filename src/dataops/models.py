@@ -130,6 +130,17 @@ class CensusAPIEndpoint(BaseModel):
 
     @computed_field
     @property
+    def url_no_key(self) -> str:
+        """Constructs the complete, queryable API URL from the model's attributes."""
+        get_params = ",".join(self.variables)
+        url_path = f"{self.base_url}/{self.year}/{self.dataset}"
+        geo_key, geo_value = self.geography.split(":", 1)
+        params = {"get": get_params, geo_key: geo_value}
+        req = requests.Request("GET", url_path, params=params)
+        return req.prepare().url
+
+    @computed_field
+    @property
     def variable_url(self) -> str:
         """Constructs the variable API URL from the full url."""
         return f"{self.base_url}/{self.year}/{self.dataset}/variables"
@@ -385,7 +396,6 @@ class CensusAPIEndpoint(BaseModel):
             .collect()
         )
 
-        # attached geos and rearrange cols
         tidy = (
             pl.concat([tidy, geos], how="horizontal")
             .select(
@@ -407,7 +417,7 @@ class CensusAPIEndpoint(BaseModel):
             )
             .with_columns(
                 pl.all().fill_null(strategy="forward"),
-                full_url=pl.lit(self.full_url),
+                full_url=pl.lit(self.url_no_key),
                 date_pulled=datetime.now(),
             )
         )
