@@ -284,6 +284,19 @@ class CensusAPIEndpoint(BaseModel):
             .transpose(column_names="headers")
         )
 
+        def ensure_column_exists(
+            df: pl.DataFrame,
+            column_name: List[str] = ["geo_id", "ucgid", "geo_name"],
+            default_value: any = "unknown",
+        ) -> pl.DataFrame:
+            for column_name in column_name:
+                if column_name not in df.columns:
+                    df = df.with_columns(pl.lit(default_value).alias(column_name))
+
+            return df
+
+        geos = ensure_column_exists(geos).select(["geo_id", "ucgid", "geo_name"])
+
         tidy = (
             (
                 data.join(
@@ -366,30 +379,31 @@ class CensusAPIEndpoint(BaseModel):
             .collect()
         )
 
-        if not geos.is_empty():
-            tidy = (
-                pl.concat([tidy, geos], how="horizontal")
-                .select(
-                    pl.col(
-                        [
-                            "row_id",
-                            "dataset",
-                            "year",
-                        ]
-                    ),
-                    pl.col(geos.columns),
-                    pl.col(
-                        [
-                            "variable_id",
-                            "variable_name",
-                            "value",
-                            "value_type",
-                        ]
-                    ),
-                )
-                .with_columns(pl.all().fill_null(strategy="forward"))
+        tidy = (
+            pl.concat([tidy, geos], how="horizontal")
+            .select(
+                pl.col(
+                    [
+                        "row_id",
+                        "dataset",
+                        "year",
+                        "geo_id",
+                        "ucgid",
+                        "geo_name",
+                        "variable_id",
+                        "variable_name",
+                        "value",
+                        "value_type",
+                    ]
+                ),
             )
-        return tidy.with_columns(date_pulled=datetime.now())
+            .with_columns(
+                pl.all().fill_null(strategy="forward"),
+                full_url=pl.lit(self.full_url),
+                date_pulled=datetime.now(),
+            )
+        )
+        return tidy
 
     # def fetch_data(self) -> CensusData:  # Changed return type
     #     """[SYNC] Fetches data and returns it as a CensusData object."""
