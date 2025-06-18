@@ -150,7 +150,14 @@ class CensusAPIEndpoint(BaseModel):
     @property
     def concept(self) -> str:
         """Endpoint concept"""
-        return self.fetch_variable_labels().select(pl.col("concept").unique()).item()
+
+        if self.table_type != "not_table":
+            return (
+                self.fetch_variable_labels().select(pl.col("concept").unique()).item()
+            )
+
+        else:
+            return "no_concept"
 
     # --- Data Fetching Methods ---
 
