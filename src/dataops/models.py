@@ -230,49 +230,31 @@ class CensusAPIEndpoint(BaseModel):
 
     def fetch_data_to_polars(self) -> pl.DataFrame:
         """Fetches data and returns it as a Polars DataFrame."""
+        try:
+            response = requests.get(self.full_url, timeout=30)
+            response.raise_for_status()
 
-        if "acs" in self.dataset:
-            try:
-                response = requests.get(self.full_url, timeout=30)
-                response.raise_for_status()
+            data = response.json()
 
-                data = response.json()
+        except requests.exceptions.HTTPError as http_err:
+            print(
+                f"HTTP error occurred for {self.dataset}: {http_err} | Content: {response.text}"
+            )
 
-                # acs data comes in a list of 2 LONG jsons
-                if not data or len(data) < 2:
-                    print(f"Warning: API for {self.dataset} returned no data.")
+        except Exception as e:
+            print(f"An unexpected error occurred for {self.dataset}: {e}")
 
-                df = pl.DataFrame(
-                    {"headers": data[0], "records": data[1]}
-                ).with_columns(date_pulled=datetime.now())
+        if not data or len(data) < 2:
+            print(f"Warning: API for {self.dataset} returned unexpected format.")
+            return pl.DataFrame({"headers": None, "records": None}).with_columns(
+                date_pulled=datetime.now()
+            )
 
-                return df
-
-            except requests.exceptions.HTTPError as http_err:
-                print(
-                    f"HTTP error occurred for {self.dataset}: {http_err} | Content: {response.text}"
-                )
-
-            except Exception as e:
-                print(f"An unexpected error occurred for {self.dataset}: {e}")
-
-        else:
-            try:
-                response = requests.get(self.full_url, timeout=30)
-                response.raise_for_status()
-
-                data = response.json()
-
-                if not data:
-                    print(f"Warning: API for {self.dataset} returned no data.")
-                    return pl.DataFrame()
-
-                # non-acs data are a json of headers, and then a json of arrays
-                headers, records = data[0], data[1:]
-
-                df = pl.DataFrame(records, schema=headers).with_columns(
-                    date_pulled=datetime.now()
-                )
+        if len(data) == 2:
+            # typed table data usually comes in a list of 2 LONG lists
+            df = pl.DataFrame({"headers": data[0], "records": data[1]}).with_columns(
+                date_pulled=datetime.now()
+            )
 
                 return df
 
