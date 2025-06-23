@@ -32,7 +32,7 @@ class CensusAPIEndpoint(BaseModel):
         default="https://api.census.gov/data",
         description="The base URL for the Census API.",
     )
-    year: Annotated[int, Field(gt=2015, description="The survey year (e.g., 2020).")]
+    year: Annotated[int, Field(gt=1999, description="The survey year (e.g., 2020).")]
     dataset: Annotated[
         str, Field(description="The dataset identifier (e.g., 'dec/dhc', 'acs/acs5').")
     ]
