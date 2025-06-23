@@ -228,6 +228,7 @@ class CensusAPIEndpoint(BaseModel):
         )
         return data
 
+    # TODO: fix bugs tomorrow :c
     def fetch_data_to_polars(self) -> pl.DataFrame:
         """Fetches data and returns it as a Polars DataFrame."""
         try:
@@ -244,64 +245,14 @@ class CensusAPIEndpoint(BaseModel):
         except Exception as e:
             print(f"An unexpected error occurred for {self.dataset}: {e}")
 
-        if not data or len(data) < 2:
-            print(f"Warning: API for {self.dataset} returned unexpected format.")
-            return pl.DataFrame({"headers": None, "records": None}).with_columns(
-                date_pulled=datetime.now()
-            )
+        # polars expressions
+        # column selection
+        geo_cols = ["geo_id", "ucgid", "geo_name"]
+        all_cols = ["headers", "records", "geo_id", "ucgid", "geo_name", "date_pulled"]
+        geo_expr = pl.col(geo_cols)
+        all_expr = pl.col(all_cols)
 
-        if len(data) == 2:
-            # typed table data usually comes in a list of 2 LONG lists
-            df = pl.DataFrame({"headers": data[0], "records": data[1]}).with_columns(
-                date_pulled=datetime.now()
-            )
-
-            return df
-
-        if len(data) > 2:
-            # other data are a list of headers, and then a list of arrays
-
-            all_frames = []
-            headers = data[0]
-
-            for data in data[1:]:
-                df = pl.DataFrame({"headers": headers, "records": data}).lazy()
-                all_frames.append(df)
-
-            df = (
-                pl.concat(all_frames).with_columns(date_pulled=datetime.now()).collect()
-            )
-
-            return df
-
-    def fetch_tidy_data(self) -> pl.DataFrame:
-        """
-        Fetch a tidy, human-readable dataset
-        from the census api endpoint and return
-        as a polars dataframe.
-        """
-
-        labels = self.fetch_variable_labels().drop("date_pulled").lazy()
-        data = self.fetch_data_to_polars().drop("date_pulled").lazy()
-
-        # ensure geos are formatted the same way for everything
-        geos = (
-            data.with_columns(pl.col("headers").str.to_lowercase())
-            .filter(
-                pl.col("headers").eq("geo_id")
-                | pl.col("headers").eq("name")
-                | pl.col("headers").eq("ucgid")
-            )
-            .with_columns(
-                pl.when(pl.col("headers").eq("name"))
-                .then(pl.lit("geo_name"))
-                .otherwise(pl.col("headers"))
-                .alias("headers")
-            )
-            .collect()
-            .transpose(column_names="headers")
-        )
-
+        # used for capturing geo rows
         def ensure_column_exists(
             df: pl.DataFrame,
             column_name: List[str] = ["geo_id", "ucgid", "geo_name"],
@@ -313,7 +264,135 @@ class CensusAPIEndpoint(BaseModel):
 
             return df
 
-        geos = ensure_column_exists(geos).select(["geo_id", "ucgid", "geo_name"])
+        if not data or len(data) < 2:
+            print(f"Warning: API for {self.dataset} returned unexpected format.")
+            df = pl.DataFrame(
+                {"headers": "unknown", "records": "unknown"}
+            ).with_columns(date_pulled=datetime.now())
+
+            df = ensure_column_exists(df).select(all_expr)
+
+            return df
+
+        if len(data) == 2:
+            # typed table data usually comes in a list of 2 LONG lists
+            lf = (
+                pl.DataFrame({"headers": data[0], "records": data[1]})
+                .with_columns(date_pulled=datetime.now())
+                .lazy()
+            )
+            # ensure geos are formatted the same way for everything
+            geos = (
+                lf.with_columns(pl.col("headers").str.to_lowercase())
+                .filter(
+                    pl.col("headers").eq("geo_id")
+                    | pl.col("headers").eq("name")
+                    | pl.col("headers").eq("ucgid")
+                )
+                .with_columns(
+                    pl.when(pl.col("headers").eq("name"))
+                    .then(pl.lit("geo_name"))
+                    .otherwise(pl.col("headers"))
+                    .alias("headers")
+                )
+                .collect()
+                .transpose(column_names="headers")
+            )
+            geos = ensure_column_exists(geos).select(geo_cols).lazy()
+
+            df = (
+                (
+                    pl.concat([lf, geos], how="horizontal")
+                    .fill_null(strategy="forward")
+                    .select(all_expr)
+                )
+                .filter(
+                    pl.col("headers").str.to_lowercase().ne("geo_id")
+                    & pl.col("headers").str.to_lowercase().ne("name")
+                    & pl.col("headers").str.to_lowercase().ne("ucgid")
+                )
+                .collect()
+            )
+
+            return df
+
+        if len(data) > 2:
+            # other data are a list of headers, and then a list of arrays
+
+            all_frames = []
+            headers = data[0]
+
+            for data in data[1:]:
+                lf = (
+                    pl.DataFrame({"headers": headers, "records": data})
+                    .with_columns(date_pulled=datetime.now())
+                    .lazy()
+                )
+
+                # ensure geos are formatted the same way for everything
+                geos = (
+                    lf.with_columns(pl.col("headers").str.to_lowercase())
+                    .filter(
+                        pl.col("headers").eq("geo_id")
+                        | pl.col("headers").eq("name")
+                        | pl.col("headers").eq("ucgid")
+                    )
+                    .with_columns(
+                        pl.when(pl.col("headers").eq("name"))
+                        .then(pl.lit("geo_name"))
+                        .otherwise(pl.col("headers"))
+                        .alias("headers")
+                    )
+                    .collect()
+                    .transpose(column_names="headers")
+                )
+
+                geos = ensure_column_exists(geos).select(geo_expr).lazy()
+
+                lf = (
+                    pl.concat([lf, geos], how="horizontal")
+                    .filter(
+                        pl.col("headers").str.to_lowercase().ne("geo_id")
+                        & pl.col("headers").str.to_lowercase().ne("name")
+                        & pl.col("headers").str.to_lowercase().ne("ucgid")
+                    )
+                    .fill_null(strategy="forward")
+                    .select(all_expr)
+                )
+
+                all_frames.append(lf)
+
+            df = pl.concat(all_frames).collect()
+
+            return df
+
+    def fetch_tidy_data(self) -> pl.DataFrame:
+        """
+        Fetch a tidy, human-readable dataset
+        from the census api endpoint and return
+        as a polars dataframe.
+        """
+
+        labels = self.fetch_variable_labels().lazy()  # .drop("date_pulled").lazy()
+        data = self.fetch_data_to_polars().lazy()  # .drop("date_pulled").lazy()
+
+        all_cols = [
+            "row_id",
+            "dataset",
+            "year",
+            "concept",
+            "geo_id",
+            "ucgid",
+            "geo_name",
+            "variable_id",
+            "variable_name",
+            "value",
+            "value_type",
+            "full_url",
+            "date_pulled",
+        ]
+
+        all_expr = pl.col(all_cols)
 
         # ensure data are presented same way everytime
         tidy = (
@@ -331,14 +410,6 @@ class CensusAPIEndpoint(BaseModel):
                 .str.to_lowercase()
                 .alias("variable_name"),
                 pl.col("concept").str.to_lowercase(),
-            )
-            .with_columns(
-                pl.when(pl.col("headers") == "NAME")
-                .then(pl.lit("name"))
-                .when(pl.col("headers") == "GEO_ID")
-                .then(pl.lit("geoid"))
-                .otherwise(pl.col("variable_name"))
-                .alias("variable_name"),
                 pl.col("records").cast(pl.Float32, strict=False).alias("value"),
             )
             .with_columns(
@@ -380,35 +451,12 @@ class CensusAPIEndpoint(BaseModel):
                 pl.col("variable_name"),
                 pl.col("value"),
                 pl.col("value_type"),
+                full_url=pl.lit(self.url_no_key),
             )
+            .select(all_expr)  # enforce order
             .collect()
         )
 
-        tidy = (
-            pl.concat([tidy, geos], how="horizontal")
-            .select(
-                pl.col(
-                    [
-                        "row_id",
-                        "dataset",
-                        "year",
-                        "concept",
-                        "geo_id",
-                        "ucgid",
-                        "geo_name",
-                        "variable_id",
-                        "variable_name",
-                        "value",
-                        "value_type",
-                    ]
-                ),
-            )
-            .with_columns(
-                pl.all().fill_null(strategy="forward"),
-                full_url=pl.lit(self.url_no_key),
-                date_pulled=datetime.now(),
-            )
-        )
         return tidy
 
     # def fetch_data(self) -> CensusData:  # Changed return type
