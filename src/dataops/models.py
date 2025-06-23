@@ -256,17 +256,23 @@ class CensusAPIEndpoint(BaseModel):
                 date_pulled=datetime.now()
             )
 
-                return df
+            return df
 
-            except requests.exceptions.HTTPError as http_err:
-                print(
-                    f"HTTP error occurred for {self.dataset}: {http_err} | Content: {response.text}"
-                )
+        if len(data) > 2:
+            # other data are a list of headers, and then a list of arrays
 
-            except Exception as e:
-                print(f"An unexpected error occurred for {self.dataset}: {e}")
+            all_frames = []
+            headers = data[0]
 
-            return pl.DataFrame()
+            for data in data[1:]:
+                df = pl.DataFrame({"headers": headers, "records": data}).lazy()
+                all_frames.append(df)
+
+            df = (
+                pl.concat(all_frames).with_columns(date_pulled=datetime.now()).collect()
+            )
+
+            return df
 
     def fetch_tidy_data(self) -> pl.DataFrame:
         """
