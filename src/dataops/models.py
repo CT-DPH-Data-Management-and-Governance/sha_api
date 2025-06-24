@@ -170,6 +170,19 @@ class CensusAPIEndpoint(BaseModel):
         else:
             return "no_concept"
 
+    def __repr__(self):
+        return (
+            f"CensusAPIEndpoint(\n\tdataset='{self.dataset}',\n"
+            f"\tbase_url='{self.base_url}', \n"
+            f"\ttable_type='{self.table_type}', \n"
+            f"\tconcept='{self.concept}', \n"
+            f"\tyear='{self.year}', \n"
+            f"\tvariables='{self.variables}', \n"
+            f"\tgeography='{self.geography}', \n"
+            f"\turl_no_key='{self.url_no_key}', \n"
+            f"\tvariable_url='{self.variable_url}',\n)"
+        )
+
     # --- Data Fetching Methods ---
 
     def fetch_all_variable_labels(self) -> pl.DataFrame:
