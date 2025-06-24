@@ -283,11 +283,11 @@ class CensusAPIEndpoint(BaseModel):
             )
             # ensure geos are formatted the same way for everything
             geos = (
-                lf.with_columns(pl.col("headers").str.to_lowercase())
+                lf.select(pl.col("headers").str.to_lowercase(), pl.col("records"))
                 .filter(
-                    pl.col("headers").eq("geo_id")
-                    | pl.col("headers").eq("name")
-                    | pl.col("headers").eq("ucgid")
+                    (pl.col("headers").eq("geo_id"))
+                    | (pl.col("headers").eq("name"))
+                    | (pl.col("headers").eq("ucgid"))
                 )
                 .with_columns(
                     pl.when(pl.col("headers").eq("name"))
@@ -298,7 +298,7 @@ class CensusAPIEndpoint(BaseModel):
                 .collect()
                 .transpose(column_names="headers")
             )
-            geos = ensure_column_exists(geos).select(geo_cols).lazy()
+            geos = ensure_column_exists(geos).select(geo_expr).lazy()
 
             df = (
                 (
@@ -307,9 +307,9 @@ class CensusAPIEndpoint(BaseModel):
                     .select(all_expr)
                 )
                 .filter(
-                    pl.col("headers").str.to_lowercase().ne("geo_id")
-                    & pl.col("headers").str.to_lowercase().ne("name")
-                    & pl.col("headers").str.to_lowercase().ne("ucgid")
+                    (pl.col("headers").str.to_lowercase().ne("geo_id"))
+                    & (pl.col("headers").str.to_lowercase().ne("name"))
+                    & (pl.col("headers").str.to_lowercase().ne("ucgid"))
                 )
                 .collect()
             )
@@ -331,11 +331,11 @@ class CensusAPIEndpoint(BaseModel):
 
                 # ensure geos are formatted the same way for everything
                 geos = (
-                    lf.with_columns(pl.col("headers").str.to_lowercase())
+                    lf.select(pl.col("headers").str.to_lowercase(), pl.col("records"))
                     .filter(
-                        pl.col("headers").eq("geo_id")
-                        | pl.col("headers").eq("name")
-                        | pl.col("headers").eq("ucgid")
+                        (pl.col("headers").eq("geo_id"))
+                        | (pl.col("headers").eq("name"))
+                        | (pl.col("headers").eq("ucgid"))
                     )
                     .with_columns(
                         pl.when(pl.col("headers").eq("name"))
@@ -352,9 +352,9 @@ class CensusAPIEndpoint(BaseModel):
                 lf = (
                     pl.concat([lf, geos], how="horizontal")
                     .filter(
-                        pl.col("headers").str.to_lowercase().ne("geo_id")
-                        & pl.col("headers").str.to_lowercase().ne("name")
-                        & pl.col("headers").str.to_lowercase().ne("ucgid")
+                        (pl.col("headers").str.to_lowercase().ne("geo_id"))
+                        & (pl.col("headers").str.to_lowercase().ne("name"))
+                        & (pl.col("headers").str.to_lowercase().ne("ucgid"))
                     )
                     .fill_null(strategy="forward")
                     .select(all_expr)
