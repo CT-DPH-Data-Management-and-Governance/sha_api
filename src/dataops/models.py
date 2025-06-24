@@ -444,8 +444,9 @@ class CensusAPIEndpoint(BaseModel):
                 pl.lit(self.year).alias("year"),
                 pl.lit(self.url_no_key).alias("full_url"),
             )
-            .collect()
+            .fill_null(strategy="forward")  # fill concept forward
             .select(all_expr)  # enforce order
+            .collect()
         )
         return tidy
 
