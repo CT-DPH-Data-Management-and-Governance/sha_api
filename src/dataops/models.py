@@ -1,4 +1,5 @@
 import os
+import sys
 import requests
 import polars as pl
 from pydantic import (
@@ -253,9 +254,11 @@ class CensusAPIEndpoint(BaseModel):
             print(
                 f"HTTP error occurred for {self.dataset}: {http_err} | Content: {response.text}"
             )
+            sys.exit(1)
 
         except Exception as e:
             print(f"An unexpected error occurred for {self.dataset}: {e}")
+            sys.exit(1)
 
         # polars expressions
         # column selection
@@ -270,9 +273,9 @@ class CensusAPIEndpoint(BaseModel):
             column_name: List[str] = ["geo_id", "ucgid", "geo_name"],
             default_value: any = "unknown",
         ) -> pl.DataFrame:
-            for column_name in column_name:
-                if column_name not in df.columns:
-                    df = df.with_columns(pl.lit(default_value).alias(column_name))
+            for col_name in column_name:
+                if col_name not in df.columns:
+                    df = df.with_columns(pl.lit(default_value).alias(col_name))
 
             return df
 
@@ -334,9 +337,9 @@ class CensusAPIEndpoint(BaseModel):
             all_frames = []
             headers = data[0]
 
-            for data in data[1:]:
+            for record in data[1:]:
                 lf = (
-                    pl.DataFrame({"headers": headers, "records": data})
+                    pl.DataFrame({"headers": headers, "records": record})
                     .with_columns(date_pulled=datetime.now())
                     .lazy()
                 )
