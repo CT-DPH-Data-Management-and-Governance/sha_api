@@ -228,7 +228,6 @@ class CensusAPIEndpoint(BaseModel):
         )
         return data
 
-    # TODO: fix bugs tomorrow :c
     def fetch_data_to_polars(self) -> pl.DataFrame:
         """Fetches data and returns it as a Polars DataFrame."""
         try:
@@ -441,22 +440,13 @@ class CensusAPIEndpoint(BaseModel):
                 .then(pl.lit("count"))
                 .otherwise(pl.col("value_type"))
                 .alias("value_type"),
-            )
-            .select(
-                pl.col("row_id"),
                 pl.lit(self.dataset).alias("dataset"),
                 pl.lit(self.year).alias("year"),
-                pl.col("concept"),
-                pl.col("variable_id"),
-                pl.col("variable_name"),
-                pl.col("value"),
-                pl.col("value_type"),
-                full_url=pl.lit(self.url_no_key),
+                pl.lit(self.url_no_key).alias("full_url"),
             )
-            .select(all_expr)  # enforce order
             .collect()
+            .select(all_expr)  # enforce order
         )
-
         return tidy
 
     # def fetch_data(self) -> CensusData:  # Changed return type
