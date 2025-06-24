@@ -1,14 +1,8 @@
 # api-data-ops
 
-Condensing some code across the repos as a library.
-
-## Contents
-
-This template uses uv to initialize a project upon container 
-creation and will sync with every start.
-
-A python-focused `.gitignore` is provided and everything is licensed 
-under the MIT License.
+## Overview
+Python toolkit for DPH DMAG Data OPS. Currently focusing on pipeline work
+surrounding census apis.
 
 ## Github Actions
 
