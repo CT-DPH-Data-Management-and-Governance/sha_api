@@ -1,8 +1,6 @@
 import pytest
 from pydantic import ValidationError
 
-# Adjust this import based on your library's structure.
-# It assumes your classes are in a file at `src/census_helpers/models.py`
 from dataops.models import CensusAPIEndpoint
 
 
