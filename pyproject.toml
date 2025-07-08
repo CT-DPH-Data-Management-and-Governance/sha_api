@@ -18,10 +18,12 @@ dependencies = [
     "polars>=1.30.0",
     "pyarrow>=20.0.0",
     "pydantic>=2.11.5",
+    "pydantic-settings>=2.10.1",
     "pytest>=8.4.0",
     "pytest-mock>=3.14.1",
     "python-dotenv>=1.1.0",
     "requests>=2.32.4",
+    "sodapy>=2.2.0",
 ]
 
 [build-system]
