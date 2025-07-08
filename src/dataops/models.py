@@ -11,6 +11,7 @@ from pydantic import (
     computed_field,
     ValidationError,
 )
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional, Annotated
 from urllib.parse import urlparse, parse_qs
 from dotenv import load_dotenv
@@ -19,7 +20,25 @@ from datetime import datetime
 
 load_dotenv()
 
+# TODO: convert to pydantic settings and implement
 CENSUS_API_KEY = os.getenv("CENSUS_API_KEY")
+
+
+class ApplicationSettings(BaseSettings):
+    """
+    Defines application settings for interacting with the portal platform and Census API.
+    """
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    census_api_key: str = Field(..., env="CENSUS_API_KEY")
+    domain: str = Field(..., env="DOMAIN")
+    table_source: str = Field(..., env="TABLE_SOURCE")
+    table_target: str = Field(..., env="TABLE_TARGET")
+    resource: str = Field(..., env="RESOURCE")
+    user: str = Field(..., env="USER")
+    password: str = Field(..., env="PASSWORD")
+    token: str = Field(..., env="TOKEN")
 
 
 class CensusAPIEndpoint(BaseModel):
@@ -242,6 +261,7 @@ class CensusAPIEndpoint(BaseModel):
         )
         return data
 
+    # TODO: fix bugs tomorrow :c
     def fetch_data_to_polars(self) -> pl.DataFrame:
         """Fetches data and returns it as a Polars DataFrame."""
         try:
