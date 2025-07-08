@@ -10,6 +10,7 @@ from pydantic import (
     computed_field,
     ValidationError,
 )
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional, Annotated
 from urllib.parse import urlparse, parse_qs
 from dotenv import load_dotenv
@@ -18,7 +19,25 @@ from datetime import datetime
 
 load_dotenv()
 
+# TODO: convert to pydantic settings and implement
 CENSUS_API_KEY = os.getenv("CENSUS_API_KEY")
+
+
+class ApplicationSettings(BaseSettings):
+    """
+    Defines application settings for interacting with the portal platform and Census API.
+    """
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    census_api_key: str = Field("census_api_key")
+    domain: str = Field("domain")
+    table_source: str = Field("table_source")
+    table_target: str = Field("table_target")
+    resource: str = Field("resource")
+    user: str = Field("user")
+    password: str = Field("password")
+    token: str = Field("token")
 
 
 class CensusAPIEndpoint(BaseModel):
