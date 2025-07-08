@@ -1,4 +1,4 @@
-from models import ApplicationSettings
+from .models import ApplicationSettings
 import polars as pl
 from sodapy import Socrata
 
