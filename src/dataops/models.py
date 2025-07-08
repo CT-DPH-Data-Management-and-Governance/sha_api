@@ -31,14 +31,14 @@ class ApplicationSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    census_api_key: str = Field("census_api_key")
-    domain: str = Field("domain")
-    table_source: str = Field("table_source")
-    table_target: str = Field("table_target")
-    resource: str = Field("resource")
-    user: str = Field("user")
-    password: str = Field("password")
-    token: str = Field("token")
+    census_api_key: str = Field(..., env="CENSUS_API_KEY")
+    domain: str = Field(..., env="DOMAIN")
+    table_source: str = Field(..., env="TABLE_SOURCE")
+    table_target: str = Field(..., env="TABLE_TARGET")
+    resource: str = Field(..., env="RESOURCE")
+    user: str = Field(..., env="USER")
+    password: str = Field(..., env="PASSWORD")
+    token: str = Field(..., env="TOKEN")
 
 
 class CensusAPIEndpoint(BaseModel):
