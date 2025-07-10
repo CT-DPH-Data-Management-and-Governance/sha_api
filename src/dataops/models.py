@@ -33,12 +33,11 @@ class ApplicationSettings(BaseSettings):
 
     census_api_key: str = Field(..., env="CENSUS_API_KEY")
     domain: str = Field(..., env="DOMAIN")
-    table_source: str = Field(..., env="TABLE_SOURCE")
-    table_target: str = Field(..., env="TABLE_TARGET")
-    resource: str = Field(..., env="RESOURCE")
-    user: str = Field(..., env="USER")
-    password: str = Field(..., env="PASSWORD")
-    token: str = Field(..., env="TOKEN")
+    source_id: str = Field(..., env="SOURCE_ID")
+    target_id: str = Field(..., env="TARGET_ID")
+    socrata_user: str = Field(..., env="SOCRATA_USER")
+    socrata_pass: str = Field(..., env="SOCRATA_PASS")
+    socrata_token: str = Field(..., env="SOCRATA_TOKEN")
 
 
 class CensusAPIEndpoint(BaseModel):
