@@ -4,7 +4,7 @@ from sodapy import Socrata
 
 
 def fetch_data(
-    resource: str | None = None,
+    source: str | None = None,
     settings: ApplicationSettings | None = None,
     lazy: bool = True,
 ) -> pl.LazyFrame | pl.DataFrame:
@@ -15,13 +15,16 @@ def fetch_data(
     if settings is None:
         settings = ApplicationSettings()
 
-    if resource is None:
-        resource = settings.resource
+    if source is None:
+        source = settings.source_id
 
     with Socrata(
-        settings.domain, settings.token, settings.user, settings.password
+        settings.domain,
+        settings.socrata_token,
+        settings.socrata_user,
+        settings.socrata_pass,
     ) as client:
-        data = client.get_all(resource)
+        data = client.get_all(source)
         data = pl.LazyFrame(data)
 
     if not lazy:
@@ -37,3 +40,4 @@ def pull_endpoints(df: pl.DataFrame) -> list[str] | pl.DataFrame:
         return df.select(pl.col("endpoint").struct.unnest()).to_series().to_list()
 
     return df
+
