@@ -1,4 +1,3 @@
-
 from src.dataops.models import CensusAPIEndpoint
 
 

@@ -49,10 +49,9 @@ def replace_data(
 ):
     if settings is None:
         settings = ApplicationSettings()
-    
+
     if target is None:
         target = settings.target_id
-
 
     dict_data = data.to_dicts()
 
