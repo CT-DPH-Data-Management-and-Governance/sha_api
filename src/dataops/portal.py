@@ -41,3 +41,25 @@ def pull_endpoints(df: pl.DataFrame) -> list[str] | pl.DataFrame:
 
     return df
 
+
+def replace_data(
+    data: pl.DataFrame,
+    target: str | None = None,
+    settings: ApplicationSettings | None = None,
+):
+    if settings is None:
+        settings = ApplicationSettings()
+    
+    if target is None:
+        target = settings.target_id
+
+
+    dict_data = data.to_dicts()
+
+    with Socrata(
+        settings.domain,
+        settings.socrata_token,
+        settings.socrata_user,
+        settings.socrata_pass,
+    ) as client:
+        client.replace(target, dict_data)
