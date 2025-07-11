@@ -1,0 +1,86 @@
+---
+title: quick eda on vars
+---
+
+```{python}
+
+from dataops.models import CensusAPIEndpoint as ce
+import polars as pl
+
+testcase1 = ce.from_url(
+    "https://api.census.gov/data/2023/acs/acs5/subject?get=group(S0101)&ucgid=0400000US09"
+)
+
+testcase2 = ce.from_url(
+    "https://api.census.gov/data/2023/acs/acs1?get=group(B19013I)&ucgid=0400000US09"
+)
+
+testcase3 = ce.from_url(
+    "https://api.census.gov/data/2023/acs/acs1?get=group(B25088)&ucgid=0400000US09"
+)
+
+
+data2_raw = testcase2.fetch_data_to_polars()
+data2_raw
+
+# >>> data2_raw = testcase2.fetch_data_to_polars()
+# >>> data2_raw
+# shape: (4, 6)
+# headers	records	geo_id	ucgid	geo_name	date_pulled
+# str	str	str	str	str	datetime[μs]
+# "B19013I_001E"	"61081"	"0400000US09"	"0400000US09"	"Connecticut"	2025-07-11 13:07:03.642779
+# "B19013I_001EA"	"61081"	"0400000US09"	"0400000US09"	"Connecticut"	2025-07-11 13:07:03.642779
+# "B19013I_001M"	"3265"	"0400000US09"	"0400000US09"	"Connecticut"	2025-07-11 13:07:03.642779
+# "B19013I_001MA"	"3265"	"0400000US09"	"0400000US09"	"Connecticut"	2025-07-11 13:07:03.642779
+
+
+data2_tidy = testcase2.fetch_tidy_data()
+data2_tidy
+
+data3_raw = testcase3.fetch_data_to_polars()
+data3_raw
+
+data3_tidy = testcase3.fetch_tidy_data()
+data3_tidy
+
+```
+
+headers in raw and variable_id in tidy one
+
+- E estimate
+- M margin of error
+- PE percent ""
+- PM percent ""
+- EA
+- MA
+- PMA
+- SS  statistical significance
+
+## parse the var ids
+
+example: "B19013I_001E"
+
+base table: B - detail table
+
+table id: B19013I -  'median household income in the past 12 months 
+(in 2023 inflation-adjusted dollars) (hispanic or latino householder)'
+
+line number: 001 - line one
+value type: E - estimate
+
+
+```{python}
+# test parse
+
+df = data3_tidy
+
+df.select(
+    ["row_id", "variable_id", "variable_name", "value", "value_type"]
+).with_columns(
+    pl.col("variable_id").str.slice(0, 1).alias("table_type"),
+    pl.col("variable_id").str.slice(0, 1).alias("table_type"),
+)
+
+
+
+```
