@@ -39,6 +39,13 @@ class ApplicationSettings(BaseSettings):
     socrata_pass: str = Field("", env="SOCRATA_PASS")
     socrata_token: str = Field("", env="SOCRATA_TOKEN")
 
+    def __repr__(self):
+        return (
+            f"ApplicationSettings(\n\tdomain='{self.domain}',\n"
+            f"\tsource_id='{self.source_id}', \n"
+            f"\ttarget_id='{self.target_id}', \n"
+        )
+
 
 class CensusAPIEndpoint(BaseModel):
     """
