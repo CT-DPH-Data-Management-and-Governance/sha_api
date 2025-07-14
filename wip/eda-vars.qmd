@@ -212,6 +212,11 @@ yes
 
 
 yikes - I can probably do a little better in that pivot etc...
+
+the problem is each column has 1 or more metrics that go only to that
+column. so we could append a prefix, but then columns are going to be 
+unique to only the subject table itself - can't stack em in sql etc...
+
 but I checked the "human-readable" landing page and there is
 so much nesting. their 6 columns is really 12, and maybe 3 mini
 tables tack horizontally. I don't think we're getting this in a clean
