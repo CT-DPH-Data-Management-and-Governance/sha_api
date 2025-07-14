@@ -68,6 +68,7 @@ table id: B19013I -  'median household income in the past 12 months
 line number: 001 - line one
 value type: E - estimate
 
+## b tables
 
 ```{python}
 # test parse
@@ -134,3 +135,87 @@ print(vars.head().collect())
 print("to this:")
 print(yes)
 ```
+
+
+
+## s tables
+
+
+```{python}
+
+
+df = testcase1.fetch_tidy_data().lazy()
+
+# do when then otherwise for s vs b etc..
+
+subj_vars = (
+    df.select(["row_id", "variable_id", "variable_name", "value", "value_type"])
+    .with_columns(pl.col("variable_id").str.slice(0, 1).alias("table_type"))
+    .with_columns(
+        pl.col("variable_id")
+        .str.split_exact(
+            by="_", n=2
+        )  # this will totally break with the 3 part subject table names
+        .struct.rename_fields(
+            [
+                "table_id",
+                "column_id",
+                "line_id",
+            ]
+        )
+        .alias("parts")
+    )
+    .unnest("parts")
+    .with_columns(
+        pl.col("table_id").str.slice(0, 1).alias("table_type"),
+        pl.col("table_id").str.slice(1, 2).alias("table_subject_id"),
+        pl.col("table_id").str.slice(3, 3).alias("subject_table_number"),
+        pl.col("table_id").str.slice(6).alias("table_id_suffix"),
+        pl.col("column_id").str.slice(-2).str.to_integer().alias("column_number"),
+    )
+    .with_columns(
+        pl.col("line_id").str.slice(0, 3).alias("line_number").str.to_integer(),
+        pl.col("line_id").str.slice(3).alias("line_suffix"),
+    )
+)
+
+
+subj_vars.head().collect()
+
+```
+
+
+```{python}
+subj_try_pivot = subj_vars.select(
+    [
+        #    "row_id",
+        "variable_id",
+        "variable_name",
+        "value",
+        "column_number",
+        "line_number",
+        "line_suffix",
+    ]
+).collect()
+
+subj_try_pivot.head()
+
+
+yes = subj_try_pivot.pivot(
+    "column_number",
+    index=["line_number", "variable_name", "line_suffix"],
+    values="value",
+)
+yes
+
+```
+
+
+yikes - I can probably do a little better in that pivot etc...
+but I checked the "human-readable" landing page and there is
+so much nesting. their 6 columns is really 12, and maybe 3 mini
+tables tack horizontally. I don't think we're getting this in a clean
+standard, easily pivotable format.
+
+goal here is to do a better scrape of meta data out of the vars themeselves etc...
+for subj tables.
