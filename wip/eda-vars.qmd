@@ -75,27 +75,62 @@ value type: E - estimate
 df = data3_tidy
 
 
-df.select(
-    ["row_id", "variable_id", "variable_name", "value", "value_type"]
-).with_columns(
-    pl.col("variable_id")
-    .str.split_exact(
-        by="_", n=1
-    )  # this will totally break with the 3 part subject table names
-    .struct.rename_fields(["table_id", "line_id"])
-    .alias("parts")
-).unnest(
-    "parts"
-).with_columns(
-    pl.col("table_id").str.slice(0, 1).alias("table_type"),
-    pl.col("table_id").str.slice(1, 2).alias("table_subject_id"),
-    pl.col("table_id").str.slice(3, 3).alias("subject_table_number"),
-    pl.col("table_id").str.slice(6).alias("table_id_suffix"),
-).with_columns(
-    pl.col("line_id").str.slice(0, 3).alias("line_number").str.to_integer(),
-    pl.col("line_id").str.slice(3).alias("line_suffix"),
+vars = (
+    df.lazy()
+    .select(["row_id", "variable_id", "variable_name", "value", "value_type"])
+    .with_columns(
+        pl.col("variable_id")
+        .str.split_exact(
+            by="_", n=1
+        )  # this will totally break with the 3 part subject table names
+        .struct.rename_fields(["table_id", "line_id"])
+        .alias("parts")
+    )
+    .unnest("parts")
+    .with_columns(
+        pl.col("table_id").str.slice(0, 1).alias("table_type"),
+        pl.col("table_id").str.slice(1, 2).alias("table_subject_id"),
+        pl.col("table_id").str.slice(3, 3).alias("subject_table_number"),
+        pl.col("table_id").str.slice(6).alias("table_id_suffix"),
+    )
+    .with_columns(
+        pl.col("line_id").str.slice(0, 3).alias("line_number").str.to_integer(),
+        pl.col("line_id").str.slice(3).alias("line_suffix"),
+    )
 )
 
 
+vars.head().collect()
 
+
+```
+
+
+
+```{python}
+try_pivot = vars.select(
+    [
+        #    "row_id",
+        "variable_id",
+        "variable_name",
+        "value",
+        "line_number",
+        "line_suffix",
+    ]
+).collect()
+
+try_pivot.head()
+
+
+yes= try_pivot.pivot("line_suffix", index=["line_number", "variable_name"], values="value")
+yes
+```
+
+
+
+```{python}
+print("so from this:")
+print(vars.head().collect())
+print("to this:")
+print(yes)
 ```
