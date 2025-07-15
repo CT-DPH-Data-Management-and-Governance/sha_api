@@ -1,6 +1,7 @@
 from dataops.models import app
 
 # import os
+import sys
 from urllib.parse import urlparse, parse_qs
 import requests
 from typing import List, Optional, Annotated
@@ -146,10 +147,12 @@ class APIEndpoint(BaseModel):
             path_parts = [
                 part for part in parsed_url.path.strip("/").split("/") if part
             ]
+
             if path_parts[0] != "data" or len(path_parts) < 3:
                 raise ValueError(
                     "URL path does not match expected '/data/{year}/{dataset...}' structure."
                 )
+
             year = int(path_parts[1])
 
             dataset = "/".join(path_parts[2:])
@@ -242,6 +245,39 @@ class APIData(BaseModel):
 
     #     else:
     #         return "no_concept"
+
+    # wrap in a client or some such?
+    def _fetch_raw(self) -> list[str]:
+        endpoint = self.endpoint.full_url
+
+        # check the response
+        try:
+            response = requests.get(endpoint, timeout=30)
+            response.raise_for_status()
+
+        except requests.exceptions.HTTPError as http_err:
+            print(
+                f"HTTP error occurred for {self.endpoint.dataset}: {http_err} | Content: {response.text}"
+            )
+            sys.exit(1)
+
+        except Exception as e:
+            print(f"An unexpected error occurred for {self.endpoint.dataset}: {e}")
+            sys.exit(1)
+
+        # check the json deserialization
+        try:
+            data = response.json()
+
+        except requests.exceptions.JSONDecodeError as json_err:
+            print(f"JSON Decode error occurred for {self.endpoint.dataset}: {json_err}")
+            sys.exit(1)
+
+        except Exception as e:
+            print(f"An unexpected error occurred for {self.endpoint.dataset}: {e}")
+            sys.exit(1)
+
+        return data
 
     def __repr__(self):
         return (
