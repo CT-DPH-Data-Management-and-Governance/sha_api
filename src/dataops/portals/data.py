@@ -1,11 +1,11 @@
-from .models import ApplicationSettings
+from dataops.models import app
 import polars as pl
 from sodapy import Socrata
 
 
 def fetch_data(
     source: str | None = None,
-    settings: ApplicationSettings | None = None,
+    settings: app.ApplicationSettings | None = None,
     lazy: bool = True,
 ) -> pl.LazyFrame | pl.DataFrame:
     """
@@ -13,7 +13,7 @@ def fetch_data(
     Environmental variables are used as defaults unless otherwise specified.
     """
     if settings is None:
-        settings = ApplicationSettings()
+        settings = app.ApplicationSettings()
 
     if source is None:
         source = settings.source_id
@@ -45,10 +45,10 @@ def pull_endpoints(df: pl.DataFrame) -> list[str] | pl.DataFrame:
 def replace_data(
     data: pl.DataFrame,
     target: str | None = None,
-    settings: ApplicationSettings | None = None,
+    settings: app.ApplicationSettings | None = None,
 ):
     if settings is None:
-        settings = ApplicationSettings()
+        settings = app.ApplicationSettings()
 
     if target is None:
         target = settings.target_id
