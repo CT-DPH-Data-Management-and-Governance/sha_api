@@ -224,8 +224,8 @@ class APIEndpoint(BaseModel):
 
 class APIData(BaseModel):
     """
-    A Pydantic model to represent the response data from the
-    Census Bureau API Endpoint.
+    A Pydantic model to represent the response data
+    from the Census Bureau API Endpoint.
     """
 
     endpoint: APIEndpoint = Field(..., description="Census API endpoint")
@@ -246,9 +246,9 @@ class APIData(BaseModel):
     #     else:
     #         return "no_concept"
 
-    # wrap in a client or some such?
     def _fetch_raw(self) -> list[str]:
         endpoint = self.endpoint.full_url
+        dataset = self.endpoint.dataset
 
         # check the response
         try:
@@ -257,12 +257,12 @@ class APIData(BaseModel):
 
         except requests.exceptions.HTTPError as http_err:
             print(
-                f"HTTP error occurred for {self.endpoint.dataset}: {http_err} | Content: {response.text}"
+                f"HTTP error occurred for {dataset}: {http_err} | Content: {response.text}"
             )
             sys.exit(1)
 
         except Exception as e:
-            print(f"An unexpected error occurred for {self.endpoint.dataset}: {e}")
+            print(f"An unexpected error occurred for {dataset}: {e}")
             sys.exit(1)
 
         # check the json deserialization
@@ -270,11 +270,11 @@ class APIData(BaseModel):
             data = response.json()
 
         except requests.exceptions.JSONDecodeError as json_err:
-            print(f"JSON Decode error occurred for {self.endpoint.dataset}: {json_err}")
+            print(f"JSON Decode error occurred for {dataset}: {json_err}")
             sys.exit(1)
 
         except Exception as e:
-            print(f"An unexpected error occurred for {self.endpoint.dataset}: {e}")
+            print(f"An unexpected error occurred for {dataset}: {e}")
             sys.exit(1)
 
         return data
