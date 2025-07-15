@@ -1,5 +1,5 @@
 import polars as pl
-from dataops.models import app
+from dataops.models import input
 from dataops.api import _get
 
 # import os
@@ -67,7 +67,7 @@ class APIEndpoint(BaseModel):
     def set_api_key_from_env(cls, data: any) -> any:
         """Sets API key from env var if not provided."""
         if isinstance(data, dict) and not data.get("api_key"):
-            data["api_key"] = app.Settings().census_api_key
+            data["api_key"] = input.AppSettings().census_api_key
         return data
 
     @field_validator("dataset")

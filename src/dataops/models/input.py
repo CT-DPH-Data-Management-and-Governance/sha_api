@@ -2,6 +2,23 @@ from pydantic import Field, BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class User(BaseModel):
+    user: str
+    password: str
+    token: str | None
+
+
+class Socrata(BaseModel):
+    domain: str
+    source_id: str
+    target_id: str | None
+
+
+class UserInput(BaseModel):
+    user: User
+    socrata: Socrata
+
+
 class AppSettings(BaseSettings):
     """
     Defines application settings for interacting with the portal platform and Census API.
@@ -18,23 +35,5 @@ class AppSettings(BaseSettings):
     socrata_token: str = Field("", env="SOCRATA_TOKEN")
 
 
-class UserInput(BaseModel):
-    user: User
-    socrata: Socrata
-
-
-class User(BaseModel):
-    user: str
-    password: str
-    token: str | None
-
-
-class Socrata(BaseModel):
-    domain: str
-    source_id: str
-    target_id: str | None
-
-
 # TODO implement some socrata validation around some of those fields
 # TODO rename this and include the user facing stuff here
-# module could be like interface?
