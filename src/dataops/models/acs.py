@@ -187,3 +187,38 @@ class APIEndpoint(BaseModel):
             f"\turl_no_key='{self.url_no_key}', \n"
             f"\tvariable_url='{self.variable_url}',\n)"
         )
+
+
+class APIData(BaseModel):
+    """
+    A Pydantic model to represent the response data from the
+    Census Bureau API Endpoint.
+    """
+
+    endpoint: APIEndpoint = Field(
+        ...,
+        description= "Census API endpoint"
+    )
+    # response codes?
+    # raw
+
+    # TODO push this down to a method
+    # @computed_field
+    # @property
+    # def concept(self) -> str:
+    #     """Endpoint concept"""
+
+    #     if self.table_type != "not_table":
+    #         return (
+    #             self.fetch_variable_labels().select(pl.col("concept").unique()).item()
+    #         )
+
+    #     else:
+    #         return "no_concept"
+
+    def __repr__(self):
+        return (
+            f"APIData(\n\tendpoint='{self.endpoint.}',\n"
+            # f"\tresponse='{self.concept}', \n"
+            # f"\traw='{self.variable_url}',\n)"
+        )
