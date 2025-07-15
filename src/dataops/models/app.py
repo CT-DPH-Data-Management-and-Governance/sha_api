@@ -2,7 +2,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class ApplicationSettings(BaseSettings):
+class Settings(BaseSettings):
     """
     Defines application settings for interacting with the portal platform and Census API.
     """
