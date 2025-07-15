@@ -20,7 +20,7 @@ from pydantic import (
 # ideas /todoish
 # class APIVariable():
 # class for subj, btable, dp etc...
-
+# user input vs application facing inputs models
 
 class APIEndpoint(BaseModel):
     """

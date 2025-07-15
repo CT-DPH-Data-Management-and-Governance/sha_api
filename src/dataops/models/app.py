@@ -16,3 +16,8 @@ class Settings(BaseSettings):
     socrata_user: str = Field("", env="SOCRATA_USER")
     socrata_pass: str = Field("", env="SOCRATA_PASS")
     socrata_token: str = Field("", env="SOCRATA_TOKEN")
+
+
+# TODO implement some socrata validation around some of those fields
+# TODO rename this and include the user facing stuff here
+# module could be like interface?
