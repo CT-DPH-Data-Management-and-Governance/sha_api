@@ -1,4 +1,6 @@
+import polars as pl
 from dataops.models import app
+from dataops.api import _get
 
 # import os
 import sys
@@ -7,8 +9,8 @@ import requests
 from typing import List, Optional, Annotated
 from pydantic import (
     BaseModel,
-    Field,
     HttpUrl,
+    Field,
     field_validator,
     model_validator,
     computed_field,
@@ -102,7 +104,7 @@ class APIEndpoint(BaseModel):
     # TODO: if groups add the groups to reduce api overshoot
     @computed_field
     @property
-    def variable_url(self) -> str:
+    def variable_endpoint(self) -> str:
         """Constructs the variable API URL from the full url."""
 
         last_resort = f"{self.base_url}/{self.year}/{self.dataset}/variables"
@@ -218,7 +220,7 @@ class APIEndpoint(BaseModel):
             f"\tvariables='{self.variables}', \n"
             f"\tgeography='{self.geography}', \n"
             f"\turl_no_key='{self.url_no_key}', \n"
-            f"\tvariable_url='{self.variable_url}',\n)"
+            f"\tvariable_endpoint='{self.variable_endpoint}',\n)"
         )
 
 
@@ -232,56 +234,62 @@ class APIData(BaseModel):
     # response codes?
     # raw
 
-    # TODO push this down to a method
+    # TODO: the variables will be the computed var pull
+    # this till refer to that - so no _get here
     # @computed_field
     # @property
-    # def concept(self) -> str:
-    #     """Endpoint concept"""
+    def concept(self) -> str:
+        """Endpoint ACS Concept"""
 
-    #     if self.table_type != "not_table":
-    #         return (
-    #             self.fetch_variable_labels().select(pl.col("concept").unique()).item()
-    #         )
+        # TODO these all have concepts with the better var endpoint
+        # TODO add a fetch raw lf and then filter to concept
+        # ensure that they all get concepts
+        # if self.table_type != "detailed table":
+            variable_endpoint = self.endpoint.variable_endpoint
+            dataset = self.endpoint.dataset
 
-    #     else:
-    #         return "no_concept"
+            # data = _get(variable_endpoint, dataset)
 
+            # return (
+            #     self.endpoint.fetch_variable_labels()
+            #     .select(pl.col("concept").unique())
+            #     .item()
+            # )
+
+        # else:
+            return "no_concept"
+    @computed_field
+    @property
+    def fetch_lazyframe(self) -> pl.LazyFrame:
+        data = self._fetch_raw()
+
+    
     def _fetch_raw(self) -> list[str]:
         endpoint = self.endpoint.full_url
         dataset = self.endpoint.dataset
 
-        # check the response
-        try:
-            response = requests.get(endpoint, timeout=30)
-            response.raise_for_status()
-
-        except requests.exceptions.HTTPError as http_err:
-            print(
-                f"HTTP error occurred for {dataset}: {http_err} | Content: {response.text}"
-            )
-            sys.exit(1)
-
-        except Exception as e:
-            print(f"An unexpected error occurred for {dataset}: {e}")
-            sys.exit(1)
-
-        # check the json deserialization
-        try:
-            data = response.json()
-
-        except requests.exceptions.JSONDecodeError as json_err:
-            print(f"JSON Decode error occurred for {dataset}: {json_err}")
-            sys.exit(1)
-
-        except Exception as e:
-            print(f"An unexpected error occurred for {dataset}: {e}")
-            sys.exit(1)
+        data = _get(endpoint, dataset)
 
         return data
+    
+    # just ripping this straight over
+    # geos need a rethink though
+    # TODO make work for lazyframes
+    def ensure_column_exists(
+        data: pl.LazyFrame | pl.DataFrame,
+            column_name: list[str] = ["geo_id", "ucgid", "geo_name"],
+            default_value: any = "unknown",
+        ) -> pl.LazyFrame:
+            for col_name in column_name:
+                if col_name not in data.collect_schema().names().columns:
+                    data = data.with_columns(pl.lit(default_value).alias(col_name))
+
+            return data
+    
 
     def __repr__(self):
         return (
             f"APIData(\n\tendpoint='{self.endpoint.url_no_key}',\n"
             # f"\tresponse='{self.concept}', \n"
-            # f"\traw='{self.variable_url}',\n)"
+            # f"\traw='{self.endpoint.variable_endpoint}',\n)"
         )
