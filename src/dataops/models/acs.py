@@ -9,6 +9,7 @@ from pydantic import (
     Field,
     HttpUrl,
     field_validator,
+    model_validator,
     computed_field,
     ValidationError,
 )
@@ -24,15 +25,18 @@ class APIEndpoint(BaseModel):
     U.S. Census Bureau's American Community Survey API endpoint.
     """
 
-    # --- Core URL Components ---
+    # Core Endpoint Components
     base_url: HttpUrl = Field(
         default="https://api.census.gov/data",
         description="The base URL for the Census ACS API.",
     )
+
     year: Annotated[int, Field(gt=2004, description="The survey year (e.g., 2020).")]
+
     dataset: Annotated[
         str, Field(description="The dataset identifier (e.g., 'acs/acs1', 'acs/acs5').")
     ]
+
     variables: Annotated[
         List[str],
         Field(
@@ -40,6 +44,7 @@ class APIEndpoint(BaseModel):
             description="A list of variable names to retrieve (e.g., ['NAME', 'P1_001N']).",
         ),
     ]
+
     geography: Annotated[
         str,
         Field(
@@ -47,20 +52,20 @@ class APIEndpoint(BaseModel):
             description="The geography specification (e.g., 'state:*', 'ucgid:0400000US09').",
         ),
     ]
+
     api_key: Optional[str] = Field(
-        default=app.Settings().census_api_key,
         repr=False,
         description="Your Census API key. If not provided, it's sourced from the CENSUS_API_KEY environment variable.",
     )
 
     # # TODO see if I need this if I'm just using app settings
-    # @model_validator(mode="before")
-    # @classmethod
-    # def set_api_key_from_env(cls, data: any) -> any:
-    #     """Sets API key from env var if not provided."""
-    #     if isinstance(data, dict) and not data.get("api_key"):
-    #         data["api_key"] = os.getenv("CENSUS_API_KEY")
-    #     return data
+    @model_validator(mode="before")
+    @classmethod
+    def set_api_key_from_env(cls, data: any) -> any:
+        """Sets API key from env var if not provided."""
+        if isinstance(data, dict) and not data.get("api_key"):
+            data["api_key"] = app.Settings().census_api_key
+        return data
 
     @field_validator("dataset")
     @classmethod
@@ -108,12 +113,11 @@ class APIEndpoint(BaseModel):
         middle = dataset_parts[1]
 
         if last == middle:
-            return "not_table"
+            return "detailed table"
         else:
-            return last
+            return f"{last} table"
 
-        # --- Alternative Constructor from URL ---
-
+    # Alternative Constructor from URL
     @classmethod
     def from_url(cls, url: str) -> "APIEndpoint":
         """Parses a full Census API URL string and creates an instance."""
