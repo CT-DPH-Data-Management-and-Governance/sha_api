@@ -23,7 +23,7 @@ load_dotenv()
 CENSUS_API_KEY = os.getenv("CENSUS_API_KEY")
 
 
-class CensusAPIEndpoint(BaseModel):
+class APIEndpoint(BaseModel):
     """
     A Pydantic model to represent, validate, and interact with a
     U.S. Census Bureau API endpoint.
@@ -59,7 +59,7 @@ class CensusAPIEndpoint(BaseModel):
 
     # --- Alternative Constructor from URL ---
     @classmethod
-    def from_url(cls, url: str) -> "CensusAPIEndpoint":
+    def from_url(cls, url: str) -> "APIEndpoint":
         """Parses a full Census API URL string and creates an instance."""
         try:
             parsed_url = urlparse(url)
@@ -174,7 +174,7 @@ class CensusAPIEndpoint(BaseModel):
 
     def __repr__(self):
         return (
-            f"CensusAPIEndpoint(\n\tdataset='{self.dataset}',\n"
+            f"APIEndpoint(\n\tdataset='{self.dataset}',\n"
             f"\tbase_url='{self.base_url}', \n"
             f"\ttable_type='{self.table_type}', \n"
             f"\tconcept='{self.concept}', \n"
@@ -243,7 +243,6 @@ class CensusAPIEndpoint(BaseModel):
         )
         return data
 
-    # TODO: fix bugs tomorrow :c
     def fetch_data_to_polars(self) -> pl.DataFrame:
         """Fetches data and returns it as a Polars DataFrame."""
         try:
