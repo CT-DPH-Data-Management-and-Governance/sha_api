@@ -114,7 +114,7 @@ class APIEndpoint(BaseModel):
             # f"{self.base_url}/{self.year}/{self.dataset}/groups/{self.variables}"
             return last_resort
 
-        elif self.table_table == "subject table":
+        elif self.table_type == "subject table":
             # TODO verify this again -  get table type in order as well
             # f"{self.base_url}/{self.year}/{self.dataset}/{self.table_type}/{self.variables}"
             return last_resort
