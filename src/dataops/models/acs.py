@@ -103,7 +103,26 @@ class APIEndpoint(BaseModel):
     @property
     def variable_url(self) -> str:
         """Constructs the variable API URL from the full url."""
-        return f"{self.base_url}/{self.year}/{self.dataset}/variables"
+
+        last_resort = f"{self.base_url}/{self.year}/{self.dataset}/variables"
+
+        # TODO switch up variables output like a list
+        # TODO then collapse at will with commas
+        # TODO test how multi-vars work with groups/
+
+        if self.table_type == "detailed table":
+            # f"{self.base_url}/{self.year}/{self.dataset}/groups/{self.variables}"
+            return last_resort
+
+        elif self.table_table == "subject table":
+            # TODO verify this again -  get table type in order as well
+            # f"{self.base_url}/{self.year}/{self.dataset}/{self.table_type}/{self.variables}"
+            return last_resort
+
+        # if all else fails return this
+
+        else:
+            return last_resort
 
     @computed_field
     @property
@@ -132,21 +151,31 @@ class APIEndpoint(BaseModel):
                     "URL path does not match expected '/data/{year}/{dataset...}' structure."
                 )
             year = int(path_parts[1])
+
             dataset = "/".join(path_parts[2:])
+
+            # TODO ensure this is usable with variable url
             variables = query_params.get("get", [""])[0].split(",")
+
             if not variables or variables == [""]:
                 raise ValueError(
                     "Could not find 'get' parameter for variables in URL query."
                 )
+
             geo_key = next(
                 (key for key in ["for", "in", "ucgid"] if key in query_params), None
             )
+
             if not geo_key:
                 raise ValueError(
                     "Could not find a recognized geography parameter ('for', 'in', 'ucgid') in URL."
                 )
+
             geography = f"{geo_key}:{query_params[geo_key][0]}"
+            # TODO consider standard list of geos as well
+
             api_key = query_params.get("key", [None])[0]
+
             return cls(
                 year=year,
                 dataset=dataset,
@@ -154,6 +183,7 @@ class APIEndpoint(BaseModel):
                 geography=geography,
                 api_key=api_key,
             )
+
         except (ValueError, IndexError, TypeError) as e:
             raise ValueError(f"Failed to parse URL '{url}'. Reason: {e}") from e
         except ValidationError as e:
@@ -195,10 +225,7 @@ class APIData(BaseModel):
     Census Bureau API Endpoint.
     """
 
-    endpoint: APIEndpoint = Field(
-        ...,
-        description= "Census API endpoint"
-    )
+    endpoint: APIEndpoint = Field(..., description="Census API endpoint")
     # response codes?
     # raw
 
@@ -218,7 +245,7 @@ class APIData(BaseModel):
 
     def __repr__(self):
         return (
-            f"APIData(\n\tendpoint='{self.endpoint.}',\n"
+            f"APIData(\n\tendpoint='{self.endpoint.url_no_key}',\n"
             # f"\tresponse='{self.concept}', \n"
             # f"\traw='{self.variable_url}',\n)"
         )
