@@ -2,34 +2,27 @@ from pydantic import (
     Field,
     BaseModel,
     SecretStr,
-    HttpUrl,
     field_validator,
 )
 from typing import Optional, Annotated
 
 
-class Token(BaseModel):
-    """API or Auth Token"""
-
-    token: Optional[SecretStr] = Field(
-        default=None, description="API or Auth Token", repr=False
-    )
-
-
 class UserConfig(BaseModel):
     """Validates user-specific credentials."""
 
-    username: Annotated[str, Field(description="Username or Email")]
-    password: Annotated[SecretStr, Field(description="Password", repr=False)]
-    token: Token
+    username: Annotated[
+        Optional[str], Field(default=None, description="Username or Email")
+    ]
+    password: Annotated[
+        Optional[SecretStr], Field(default=None, description="Password", repr=False)
+    ]
+    token: Optional[SecretStr] = Field(default=None, description="Socrata Token")
 
 
-# this class is mostly a placeholder for future features
 class CensusConfig(BaseModel):
     """Validate Census API specific details."""
 
-    token: Token
-    # endpoint?
+    token: Optional[SecretStr] = Field(default=None, description="Census API Token")
 
 
 class SocrataTableID(BaseModel):
@@ -53,10 +46,9 @@ class SocrataTableID(BaseModel):
 class APIConfig(BaseModel):
     """Validates API-specific details."""
 
-    domain: HttpUrl = Field(
-        default="https://api.census.gov/data",
+    domain: str = Field(
+        default="data.ct.gov",
         description="Domain name for data portal platform.",
     )
-    source_id: SocrataTableID
-    # target_id: Optional[SocrataTableID]
-    target_id: Optional[SocrataTableID] = Field(default=None)
+    source: SocrataTableID
+    target: Optional[SocrataTableID] = Field(default=None)
