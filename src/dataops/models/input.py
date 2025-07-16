@@ -1,17 +1,27 @@
 from pydantic import Field, BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional, Annotated
 
 
 class User(BaseModel):
-    user: str
-    password: str
-    token: str | None
+    user: Annotated[str, Field(description="Username or Email")]
+    password: Annotated[str, Field(description="Password")]
+    token: Optional[str] = Field(
+        default=None, description="API or Auth Token", repr=False
+    )
 
 
 class Socrata(BaseModel):
-    domain: str
-    source_id: str
-    target_id: str | None
+    domain: str = Field(
+        default="https://api.census.gov/data",
+        description="Domain name for data portal platform.",
+    )
+    source_id: str = Field(
+        description="Table ID (aka 'four by four') of source data table."
+    )
+    target_id: Optional[str] = Field(
+        default=None, description="Table ID (aka 'four by four') of target data table."
+    )
 
 
 class UserInput(BaseModel):
