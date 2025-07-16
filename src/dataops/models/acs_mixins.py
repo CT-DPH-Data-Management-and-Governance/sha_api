@@ -43,8 +43,8 @@ class APIEndpointMixin:
         url_path = f"{self.base_url}/{self.year}/{self.dataset}"
         geo_key, geo_value = self.geography.split(":", 1)
         params = {"get": get_params, geo_key: geo_value}
-        if self.api_key:
-            params["key"] = self.api_key
+        if self.api_key.get_secret_value():
+            params["key"] = self.api_key.get_secret_value()
         req = requests.Request("GET", url_path, params=params)
         return req.prepare().url
 
