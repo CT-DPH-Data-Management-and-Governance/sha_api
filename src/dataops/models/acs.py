@@ -108,7 +108,6 @@ class APIEndpoint(BaseModel):
         req = requests.Request("GET", url_path, params=params)
         return req.prepare().url
 
-    # TODO: if groups add the groups to reduce api overshoot
     @computed_field
     @property
     def variable_endpoint(self) -> str:
@@ -116,22 +115,25 @@ class APIEndpoint(BaseModel):
 
         last_resort = f"{self.base_url}/{self.year}/{self.dataset}/variables"
 
-        # TODO then collapse at will with commas
-        # TODO test how multi-vars work with groups/
+        match self.table_type:
+            case TableType.unknown:
+                return last_resort
+            case _:
+                return f"{self.base_url}/{self.year}/{self.dataset}/groups/{self.group}"
 
-        if self.table_type == "detailed table":
-            # f"{self.base_url}/{self.year}/{self.dataset}/groups/{self.variables}"
-            return last_resort
+    @computed_field
+    @property
+    def group(self) -> str:
+        _variable_string = "".join(self.variables)
+        _length = len(self.variables)
+        _starts_with = _variable_string.startswith("group")
+        _is_group = (_length < 2) & (_starts_with)
 
-        elif self.table_type == "subject table":
-            # TODO verify this again -  get table type in order as well
-            # f"{self.base_url}/{self.year}/{self.dataset}/{self.table_type}/{self.variables}"
-            return last_resort
-
-        # if all else fails return this
+        if _is_group:
+            return _variable_string.removeprefix("group(").removesuffix(")")
 
         else:
-            return last_resort
+            return None
 
     @computed_field
     @property
@@ -140,6 +142,7 @@ class APIEndpoint(BaseModel):
         last = dataset_parts[-1]
         middle = dataset_parts[1]
 
+        # TODO refactor to use self.group
         _variable_string = "".join(self.variables)
         _length = len(self.variables)
         _starts_with = _variable_string.startswith("group")
@@ -154,7 +157,6 @@ class APIEndpoint(BaseModel):
             try:
                 tabletype = TableType[last]
             except KeyError as e:
-                print(f"Unknown Table Type: {e}")
                 tabletype = TableType.unknown
             finally:
                 return tabletype
@@ -233,10 +235,10 @@ class APIEndpoint(BaseModel):
         return (
             f"APIEndpoint(\n\tdataset='{self.dataset}',\n"
             f"\tbase_url='{self.base_url}', \n"
-            f"\ttable_type='{self.table_type}', \n"
-            # f"\tconcept='{self.concept}', \n"
+            f"\ttable_type='{self.table_type.value}', \n"
             f"\tyear='{self.year}', \n"
             f"\tvariables='{self.variables}', \n"
+            f"\tgroup='{self.group}', \n"
             f"\tgeography='{self.geography}', \n"
             f"\turl_no_key='{self.url_no_key}', \n"
             f"\tvariable_endpoint='{self.variable_endpoint}',\n)"
