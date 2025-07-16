@@ -1,32 +1,22 @@
-import polars as pl
-from dataops.models import settings
-from dataops.api import _get
-from dataops.models.acs_mixins import APIEndpointMixin
+from typing import Annotated, List, Optional
+from urllib.parse import parse_qs, urlparse
 
-from enum import Enum
-import requests
-from typing import List, Optional, Annotated
+import polars as pl
 from pydantic import (
     BaseModel,
-    HttpUrl,
     Field,
+    HttpUrl,
     SecretStr,
-    field_validator,
-    model_validator,
+    ValidationError,
     computed_field,
 )
+
+from dataops.api import _get
+from dataops.models.acs_mixins import APIEndpointMixin
 
 # ideas /todoish
 # class APIVariable():
 # class for subj, btable, dp etc...
-# user input vs application facing inputs models
-
-
-class TableType(str, Enum):
-    subject = "subject"
-    detailed = "detailed"
-    cprofile = "cprofile"
-    unknown = "unknown"
 
 
 class APIEndpoint(APIEndpointMixin, BaseModel):
@@ -68,112 +58,6 @@ class APIEndpoint(APIEndpointMixin, BaseModel):
         description="Your Census API key. If not provided, it's sourced from the CENSUS_API_KEY environment variable.",
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def set_api_key_from_env(cls, data: any) -> any:
-        """Sets API key from env var if not provided."""
-        if isinstance(data, dict) and not data.get("api_key"):
-            data["api_key"] = settings.AppSettings().census.token.get_secret_value()
-        return data
-
-    @field_validator("dataset")
-    @classmethod
-    def dataset_must_not_have_leading_or_trailing_slashes(cls, v: str) -> str:
-        """Ensures the dataset string is clean."""
-        return v.strip("/")
-
-    # --- Computed Properties for Functionality ---
-    @computed_field
-    @property
-    def full_url(self) -> str:
-        """Constructs the complete, queryable API URL from the model's attributes."""
-        get_params = ",".join(self.variables)
-        url_path = f"{self.base_url}/{self.year}/{self.dataset}"
-        geo_key, geo_value = self.geography.split(":", 1)
-        params = {"get": get_params, geo_key: geo_value}
-        if self.api_key:
-            params["key"] = self.api_key
-        req = requests.Request("GET", url_path, params=params)
-        return req.prepare().url
-
-    @computed_field
-    @property
-    def url_no_key(self) -> str:
-        """Constructs the complete, queryable API URL from the model's attributes."""
-        get_params = ",".join(self.variables)
-        url_path = f"{self.base_url}/{self.year}/{self.dataset}"
-        geo_key, geo_value = self.geography.split(":", 1)
-        params = {"get": get_params, geo_key: geo_value}
-        req = requests.Request("GET", url_path, params=params)
-        return req.prepare().url
-
-    @computed_field
-    @property
-    def variable_endpoint(self) -> str:
-        """Constructs the variable API URL from the full url."""
-
-        last_resort = f"{self.base_url}/{self.year}/{self.dataset}/variables"
-
-        match self.table_type:
-            case TableType.unknown:
-                return last_resort
-            case _:
-                return f"{self.base_url}/{self.year}/{self.dataset}/groups/{self.group}"
-
-    @computed_field
-    @property
-    def group(self) -> str:
-        _variable_string = "".join(self.variables)
-        _length = len(self.variables)
-        _starts_with = _variable_string.startswith("group")
-        _is_group = (_length < 2) & (_starts_with)
-
-        if _is_group:
-            return _variable_string.removeprefix("group(").removesuffix(")")
-
-        else:
-            return None
-
-    @computed_field
-    @property
-    def table_type(self) -> str:
-        dataset_parts = self.dataset.strip("/").split("/")
-        last = dataset_parts[-1]
-        middle = dataset_parts[1]
-
-        # TODO refactor to use self.group
-        _variable_string = "".join(self.variables)
-        _length = len(self.variables)
-        _starts_with = _variable_string.startswith("group")
-        _maybe_detailed = last == middle
-
-        _is_group = (_length < 2) & (_starts_with) & (_maybe_detailed)
-
-        if _is_group:
-            return TableType.detailed
-
-        else:
-            try:
-                tabletype = TableType[last]
-            except KeyError:
-                tabletype = TableType.unknown
-            finally:
-                return tabletype
-
-    # TODO push stuff that requires a request elsewhere
-    # @computed_field
-    # @property
-    # def concept(self) -> str:
-    #     """Endpoint concept"""
-
-    #     if self.table_type != "not_table":
-    #         return (
-    #             self.fetch_variable_labels().select(pl.col("concept").unique()).item()
-    #         )
-
-    #     else:
-    #         return "no_concept"
-
     def __repr__(self):
         return (
             f"APIEndpoint(\n\tdataset='{self.dataset}',\n"
@@ -186,6 +70,61 @@ class APIEndpoint(APIEndpointMixin, BaseModel):
             f"\turl_no_key='{self.url_no_key}', \n"
             f"\tvariable_endpoint='{self.variable_endpoint}',\n)"
         )
+
+    # Alternative Constructor from URL
+    @classmethod
+    def from_url(cls, url: str) -> "APIEndpoint":
+        """Parses a full Census API URL string and creates an instance."""
+        try:
+            parsed_url = urlparse(url)
+            query_params = parse_qs(parsed_url.query)
+            path_parts = [
+                part for part in parsed_url.path.strip("/").split("/") if part
+            ]
+
+            if path_parts[0] != "data" or len(path_parts) < 3:
+                raise ValueError(
+                    "URL path does not match expected '/data/{year}/{dataset...}' structure."
+                )
+
+            year = int(path_parts[1])
+
+            dataset = "/".join(path_parts[2:])
+
+            variables = query_params.get("get", [""])[0].split(",")
+
+            if not variables or variables == [""]:
+                raise ValueError(
+                    "Could not find 'get' parameter for variables in URL query."
+                )
+
+            geo_key = next(
+                (key for key in ["for", "in", "ucgid"] if key in query_params), None
+            )
+
+            if not geo_key:
+                raise ValueError(
+                    "Could not find a recognized geography parameter ('for', 'in', 'ucgid') in URL."
+                )
+
+            geography = f"{geo_key}:{query_params[geo_key][0]}"
+
+            api_key = query_params.get("key", [None])[0]
+
+            return cls(
+                year=year,
+                dataset=dataset,
+                variables=variables,
+                geography=geography,
+                api_key=api_key,
+            )
+
+        except (ValueError, IndexError, TypeError) as e:
+            raise ValueError(f"Failed to parse URL '{url}'. Reason: {e}") from e
+        except ValidationError as e:
+            raise ValueError(
+                f"Parsed URL components failed validation. Reason: {e}"
+            ) from e
 
 
 class APIData(BaseModel):

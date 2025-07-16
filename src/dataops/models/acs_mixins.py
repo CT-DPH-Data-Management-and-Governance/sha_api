@@ -1,70 +1,113 @@
+from enum import Enum
+
+import requests
 from pydantic import (
-    BaseModel,
-    HttpUrl,
-    Field,
-    SecretStr,
+    computed_field,
     field_validator,
     model_validator,
-    computed_field,
-    ValidationError,
 )
-from urllib.parse import urlparse, parse_qs
+
+from dataops.models import settings
+
+
+class TableType(str, Enum):
+    subject = "subject"
+    detailed = "detailed"
+    cprofile = "cprofile"
+    unknown = "unknown"
 
 
 class APIEndpointMixin:
     """A mixin to add methods to APIEndpoint."""
 
-    # Alternative Constructor from URL
+    @model_validator(mode="before")
     @classmethod
-    def from_url(cls, url: str) -> "APIEndpoint":
-        """Parses a full Census API URL string and creates an instance."""
-        try:
-            parsed_url = urlparse(url)
-            query_params = parse_qs(parsed_url.query)
-            path_parts = [
-                part for part in parsed_url.path.strip("/").split("/") if part
-            ]
+    def set_api_key_from_env(cls, data: any) -> any:
+        """Sets API key from env var if not provided."""
+        if isinstance(data, dict) and not data.get("api_key"):
+            data["api_key"] = settings.AppSettings().census.token.get_secret_value()
+        return data
 
-            if path_parts[0] != "data" or len(path_parts) < 3:
-                raise ValueError(
-                    "URL path does not match expected '/data/{year}/{dataset...}' structure."
-                )
+    @field_validator("dataset")
+    @classmethod
+    def dataset_must_not_have_leading_or_trailing_slashes(cls, v: str) -> str:
+        """Ensures the dataset string is clean."""
+        return v.strip("/")
 
-            year = int(path_parts[1])
+    # --- Computed Properties for Functionality ---
+    @computed_field
+    @property
+    def full_url(self) -> str:
+        """Constructs the complete, queryable API URL from the model's attributes."""
+        get_params = ",".join(self.variables)
+        url_path = f"{self.base_url}/{self.year}/{self.dataset}"
+        geo_key, geo_value = self.geography.split(":", 1)
+        params = {"get": get_params, geo_key: geo_value}
+        if self.api_key:
+            params["key"] = self.api_key
+        req = requests.Request("GET", url_path, params=params)
+        return req.prepare().url
 
-            dataset = "/".join(path_parts[2:])
+    @computed_field
+    @property
+    def url_no_key(self) -> str:
+        """Constructs the complete, queryable API URL from the model's attributes."""
+        get_params = ",".join(self.variables)
+        url_path = f"{self.base_url}/{self.year}/{self.dataset}"
+        geo_key, geo_value = self.geography.split(":", 1)
+        params = {"get": get_params, geo_key: geo_value}
+        req = requests.Request("GET", url_path, params=params)
+        return req.prepare().url
 
-            variables = query_params.get("get", [""])[0].split(",")
+    @computed_field
+    @property
+    def variable_endpoint(self) -> str:
+        """Constructs the variable API URL from the full url."""
 
-            if not variables or variables == [""]:
-                raise ValueError(
-                    "Could not find 'get' parameter for variables in URL query."
-                )
+        last_resort = f"{self.base_url}/{self.year}/{self.dataset}/variables"
 
-            geo_key = next(
-                (key for key in ["for", "in", "ucgid"] if key in query_params), None
-            )
+        match self.table_type:
+            case TableType.unknown:
+                return last_resort
+            case _:
+                return f"{self.base_url}/{self.year}/{self.dataset}/groups/{self.group}"
 
-            if not geo_key:
-                raise ValueError(
-                    "Could not find a recognized geography parameter ('for', 'in', 'ucgid') in URL."
-                )
+    @computed_field
+    @property
+    def group(self) -> str:
+        _variable_string = "".join(self.variables)
+        _length = len(self.variables)
+        _starts_with = _variable_string.startswith("group")
+        _is_group = (_length < 2) & (_starts_with)
 
-            geography = f"{geo_key}:{query_params[geo_key][0]}"
+        if _is_group:
+            return _variable_string.removeprefix("group(").removesuffix(")")
 
-            api_key = query_params.get("key", [None])[0]
+        else:
+            return None
 
-            return cls(
-                year=year,
-                dataset=dataset,
-                variables=variables,
-                geography=geography,
-                api_key=api_key,
-            )
+    @computed_field
+    @property
+    def table_type(self) -> str:
+        dataset_parts = self.dataset.strip("/").split("/")
+        last = dataset_parts[-1]
+        middle = dataset_parts[1]
 
-        except (ValueError, IndexError, TypeError) as e:
-            raise ValueError(f"Failed to parse URL '{url}'. Reason: {e}") from e
-        except ValidationError as e:
-            raise ValueError(
-                f"Parsed URL components failed validation. Reason: {e}"
-            ) from e
+        # TODO refactor to use self.group
+        _variable_string = "".join(self.variables)
+        _length = len(self.variables)
+        _starts_with = _variable_string.startswith("group")
+        _maybe_detailed = last == middle
+
+        _is_group = (_length < 2) & (_starts_with) & (_maybe_detailed)
+
+        if _is_group:
+            return TableType.detailed
+
+        else:
+            try:
+                tabletype = TableType[last]
+            except KeyError:
+                tabletype = TableType.unknown
+            finally:
+                return tabletype
