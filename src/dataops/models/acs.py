@@ -116,7 +116,6 @@ class APIEndpoint(BaseModel):
 
         last_resort = f"{self.base_url}/{self.year}/{self.dataset}/variables"
 
-        # TODO switch up variables output like a list
         # TODO then collapse at will with commas
         # TODO test how multi-vars work with groups/
 
@@ -141,16 +140,24 @@ class APIEndpoint(BaseModel):
         last = dataset_parts[-1]
         middle = dataset_parts[1]
 
-        if last == middle:
+        _variable_string = "".join(self.variables)
+        _length = len(self.variables)
+        _starts_with = _variable_string.startswith("group")
+        _maybe_detailed = last == middle
+
+        _is_group = (_length < 2) & (_starts_with) & (_maybe_detailed)
+
+        if _is_group:
             return TableType.detailed
+
         else:
             try:
-                _tabletype = TableType[last]
-            except ValidationError as e:
-                ValidationError(f"Unknown Table Type: {e}")
-                return TableType.unknown
+                tabletype = TableType[last]
+            except KeyError as e:
+                print(f"Unknown Table Type: {e}")
+                tabletype = TableType.unknown
             finally:
-                return _tabletype
+                return tabletype
 
     # Alternative Constructor from URL
     @classmethod
