@@ -1,6 +1,6 @@
-import dataops.models.configs as cfg
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+import dataops.models.configs as cfg
 
 
 class AppSettings(BaseSettings):

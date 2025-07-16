@@ -1,10 +1,11 @@
+from typing import Annotated, Optional
+
 from pydantic import (
-    Field,
     BaseModel,
+    Field,
     SecretStr,
     field_validator,
 )
-from typing import Optional, Annotated
 
 
 class UserConfig(BaseModel):
