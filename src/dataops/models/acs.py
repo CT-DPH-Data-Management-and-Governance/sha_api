@@ -11,6 +11,8 @@ from pydantic import (
     computed_field,
 )
 
+from pydantic_settings import SettingsConfigDict
+
 from dataops.api import _get
 from dataops.models.acs_mixins import APIEndpointMixin
 
@@ -137,6 +139,8 @@ class APIData(BaseModel):
     # response codes?
     # raw
 
+    model_config = SettingsConfigDict(arbitrary_types_allowed=True)
+
     # TODO: the variables will be the computed var pull
     # this till refer to that - so no _get here
     # @computed_field
@@ -166,9 +170,9 @@ class APIData(BaseModel):
     @computed_field
     @property
     def fetch_lazyframe(self) -> pl.LazyFrame:
-        _data = self._fetch_raw()
+        return self._raw()
 
-    def _fetch_raw(self) -> list[str]:
+    def _raw(self) -> list[str]:
         endpoint = self.endpoint.full_url
         dataset = self.endpoint.dataset
 
