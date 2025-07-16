@@ -26,6 +26,7 @@ from pydantic import (
 class TableType(str, Enum):
     subject = "subject"
     detailed = "detailed"
+    cprofile = "cprofile"
     unknown = "unknown"
 
 
