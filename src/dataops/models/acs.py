@@ -1,8 +1,8 @@
 import polars as pl
-from dataops.models import input
+from dataops.models import settings
 from dataops.api import _get
 
-# import os
+from enum import Enum
 from urllib.parse import urlparse, parse_qs
 import requests
 from typing import List, Optional, Annotated
@@ -10,6 +10,7 @@ from pydantic import (
     BaseModel,
     HttpUrl,
     Field,
+    SecretStr,
     field_validator,
     model_validator,
     computed_field,
@@ -20,6 +21,13 @@ from pydantic import (
 # class APIVariable():
 # class for subj, btable, dp etc...
 # user input vs application facing inputs models
+
+
+class TableType(str, Enum):
+    subject = "subject"
+    detailed = "detailed"
+    cprofile = "cprofile"
+    unknown = "unknown"
 
 
 class APIEndpoint(BaseModel):
@@ -56,18 +64,17 @@ class APIEndpoint(BaseModel):
         ),
     ]
 
-    api_key: Optional[str] = Field(
+    api_key: Optional[SecretStr] = Field(
         repr=False,
         description="Your Census API key. If not provided, it's sourced from the CENSUS_API_KEY environment variable.",
     )
 
-    # # TODO see if I need this if I'm just using app settings
     @model_validator(mode="before")
     @classmethod
     def set_api_key_from_env(cls, data: any) -> any:
         """Sets API key from env var if not provided."""
         if isinstance(data, dict) and not data.get("api_key"):
-            data["api_key"] = input.AppSettings().census_api_key
+            data["api_key"] = settings.AppSettings().census.token.get_secret_value()
         return data
 
     @field_validator("dataset")
@@ -109,7 +116,6 @@ class APIEndpoint(BaseModel):
 
         last_resort = f"{self.base_url}/{self.year}/{self.dataset}/variables"
 
-        # TODO switch up variables output like a list
         # TODO then collapse at will with commas
         # TODO test how multi-vars work with groups/
 
@@ -134,10 +140,24 @@ class APIEndpoint(BaseModel):
         last = dataset_parts[-1]
         middle = dataset_parts[1]
 
-        if last == middle:
-            return "detailed table"
+        _variable_string = "".join(self.variables)
+        _length = len(self.variables)
+        _starts_with = _variable_string.startswith("group")
+        _maybe_detailed = last == middle
+
+        _is_group = (_length < 2) & (_starts_with) & (_maybe_detailed)
+
+        if _is_group:
+            return TableType.detailed
+
         else:
-            return f"{last} table"
+            try:
+                tabletype = TableType[last]
+            except KeyError as e:
+                print(f"Unknown Table Type: {e}")
+                tabletype = TableType.unknown
+            finally:
+                return tabletype
 
     # Alternative Constructor from URL
     @classmethod
@@ -177,7 +197,6 @@ class APIEndpoint(BaseModel):
                 )
 
             geography = f"{geo_key}:{query_params[geo_key][0]}"
-            # TODO consider standard list of geos as well
 
             api_key = query_params.get("key", [None])[0]
 
