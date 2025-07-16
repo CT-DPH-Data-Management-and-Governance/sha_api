@@ -3,7 +3,6 @@ from dataops.models import input
 from dataops.api import _get
 
 # import os
-import sys
 from urllib.parse import urlparse, parse_qs
 import requests
 from typing import List, Optional, Annotated
@@ -21,6 +20,7 @@ from pydantic import (
 # class APIVariable():
 # class for subj, btable, dp etc...
 # user input vs application facing inputs models
+
 
 class APIEndpoint(BaseModel):
     """
@@ -245,25 +245,26 @@ class APIData(BaseModel):
         # TODO add a fetch raw lf and then filter to concept
         # ensure that they all get concepts
         # if self.table_type != "detailed table":
-            variable_endpoint = self.endpoint.variable_endpoint
-            dataset = self.endpoint.dataset
+        # variable_endpoint = self.endpoint.variable_endpoint
+        # dataset = self.endpoint.dataset
 
-            # data = _get(variable_endpoint, dataset)
+        # data = _get(variable_endpoint, dataset)
 
-            # return (
-            #     self.endpoint.fetch_variable_labels()
-            #     .select(pl.col("concept").unique())
-            #     .item()
-            # )
+        # return (
+        #     self.endpoint.fetch_variable_labels()
+        #     .select(pl.col("concept").unique())
+        #     .item()
+        # )
 
         # else:
-            return "no_concept"
+        # return "no_concept"
+        pass
+
     @computed_field
     @property
     def fetch_lazyframe(self) -> pl.LazyFrame:
-        data = self._fetch_raw()
+        _data = self._fetch_raw()
 
-    
     def _fetch_raw(self) -> list[str]:
         endpoint = self.endpoint.full_url
         dataset = self.endpoint.dataset
@@ -271,21 +272,20 @@ class APIData(BaseModel):
         data = _get(endpoint, dataset)
 
         return data
-    
+
     # just ripping this straight over
     # geos need a rethink though
     # TODO make work for lazyframes
     def ensure_column_exists(
         data: pl.LazyFrame | pl.DataFrame,
-            column_name: list[str] = ["geo_id", "ucgid", "geo_name"],
-            default_value: any = "unknown",
-        ) -> pl.LazyFrame:
-            for col_name in column_name:
-                if col_name not in data.collect_schema().names().columns:
-                    data = data.with_columns(pl.lit(default_value).alias(col_name))
+        column_name: list[str] = ["geo_id", "ucgid", "geo_name"],
+        default_value: any = "unknown",
+    ) -> pl.LazyFrame:
+        for col_name in column_name:
+            if col_name not in data.collect_schema().names().columns:
+                data = data.with_columns(pl.lit(default_value).alias(col_name))
 
-            return data
-    
+        return data
 
     def __repr__(self):
         return (
