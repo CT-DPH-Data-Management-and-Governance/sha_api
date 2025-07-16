@@ -1,6 +1,7 @@
 import dataops.models.configs as cfg
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 from typing import Optional
 
 
@@ -13,9 +14,9 @@ class AppSettings(BaseSettings):
         env_file=".env", env_nested_delimiter="__", env_prefix="APP_"
     )
 
-    user: cfg.UserConfig
-    api: cfg.APIConfig
-    census: cfg.CensusConfig
+    user: cfg.UserConfig = Field(default_factory=cfg.UserConfig)
+    api: cfg.APIConfig = Field(default_factory=cfg.APIConfig)
+    census: cfg.CensusConfig = Field(default_factory=cfg.CensusConfig)
 
     # model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

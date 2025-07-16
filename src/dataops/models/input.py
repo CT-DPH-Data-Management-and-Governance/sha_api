@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, Annotated
 
 
-class User(BaseModel):
+class Entity(BaseModel):
     user: Annotated[str, Field(description="Username or Email")]
     password: Annotated[str, Field(description="Password")]
     token: Optional[str] = Field(
@@ -25,7 +25,7 @@ class Socrata(BaseModel):
 
 
 class UserInput(BaseModel):
-    user: User
+    user: Entity
     socrata: Socrata
 
 
