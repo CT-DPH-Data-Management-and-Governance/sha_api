@@ -1,0 +1,39 @@
+from pydantic import Field, BaseModel
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class User(BaseModel):
+    user: str
+    password: str
+    token: str | None
+
+
+class Socrata(BaseModel):
+    domain: str
+    source_id: str
+    target_id: str | None
+
+
+class UserInput(BaseModel):
+    user: User
+    socrata: Socrata
+
+
+class AppSettings(BaseSettings):
+    """
+    Defines application settings for interacting with the portal platform and Census API.
+    """
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    census_api_key: str = Field("", env="CENSUS_API_KEY")
+    domain: str = Field("", env="DOMAIN")
+    source_id: str = Field("", env="SOURCE_ID")
+    target_id: str = Field("", env="TARGET_ID")
+    socrata_user: str = Field("", env="SOCRATA_USER")
+    socrata_pass: str = Field("", env="SOCRATA_PASS")
+    socrata_token: str = Field("", env="SOCRATA_TOKEN")
+
+
+# TODO implement some socrata validation around some of those fields
+# TODO rename this and include the user facing stuff here

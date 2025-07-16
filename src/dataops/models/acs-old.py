@@ -2,6 +2,11 @@ import os
 import sys
 import requests
 import polars as pl
+from typing import List, Optional, Annotated
+from urllib.parse import urlparse, parse_qs
+from dotenv import load_dotenv
+from datetime import datetime
+
 from pydantic import (
     BaseModel,
     Field,
@@ -11,12 +16,6 @@ from pydantic import (
     computed_field,
     ValidationError,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Optional, Annotated
-from urllib.parse import urlparse, parse_qs
-from dotenv import load_dotenv
-from datetime import datetime
-# import re
 
 load_dotenv()
 
@@ -24,23 +23,7 @@ load_dotenv()
 CENSUS_API_KEY = os.getenv("CENSUS_API_KEY")
 
 
-class ApplicationSettings(BaseSettings):
-    """
-    Defines application settings for interacting with the portal platform and Census API.
-    """
-
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
-
-    census_api_key: str = Field("", env="CENSUS_API_KEY")
-    domain: str = Field("", env="DOMAIN")
-    source_id: str = Field("", env="SOURCE_ID")
-    target_id: str = Field("", env="TARGET_ID")
-    socrata_user: str = Field("", env="SOCRATA_USER")
-    socrata_pass: str = Field("", env="SOCRATA_PASS")
-    socrata_token: str = Field("", env="SOCRATA_TOKEN")
-
-
-class CensusAPIEndpoint(BaseModel):
+class APIEndpoint(BaseModel):
     """
     A Pydantic model to represent, validate, and interact with a
     U.S. Census Bureau API endpoint.
@@ -76,7 +59,7 @@ class CensusAPIEndpoint(BaseModel):
 
     # --- Alternative Constructor from URL ---
     @classmethod
-    def from_url(cls, url: str) -> "CensusAPIEndpoint":
+    def from_url(cls, url: str) -> "APIEndpoint":
         """Parses a full Census API URL string and creates an instance."""
         try:
             parsed_url = urlparse(url)
@@ -191,7 +174,7 @@ class CensusAPIEndpoint(BaseModel):
 
     def __repr__(self):
         return (
-            f"CensusAPIEndpoint(\n\tdataset='{self.dataset}',\n"
+            f"APIEndpoint(\n\tdataset='{self.dataset}',\n"
             f"\tbase_url='{self.base_url}', \n"
             f"\ttable_type='{self.table_type}', \n"
             f"\tconcept='{self.concept}', \n"
@@ -260,7 +243,6 @@ class CensusAPIEndpoint(BaseModel):
         )
         return data
 
-    # TODO: fix bugs tomorrow :c
     def fetch_data_to_polars(self) -> pl.DataFrame:
         """Fetches data and returns it as a Polars DataFrame."""
         try:
