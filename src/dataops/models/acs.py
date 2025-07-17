@@ -176,6 +176,7 @@ class APIData(BaseModel):
         variable labels.
         """
 
+        # ensure you have the right variables
         endpoint_vars = (
             pl.LazyFrame({"vars": self.endpoint.variables})
             .with_columns(
@@ -186,16 +187,46 @@ class APIData(BaseModel):
             )
             .select("vars")
             .collect()
-            .to_series()
-            .explode()
-            .to_list()
+            .explode("vars")
+            .lazy()
         )
 
-        return endpoint_vars
+        relevant_variable_labels = self._var_labels.join(
+            endpoint_vars, how="inner", left_on="group", right_on="vars"
+        )
+
+        # data
+        final_col_expr = pl.col(
+            [
+                "variable",
+                "group",
+                "value",
+                "label",
+                "concept",
+                "universe",
+                "date_pulled",
+            ]
+        )
+
+        data = self._raw
+
+        # TODO check if the "shotgun" approach loses the geometry with
+        # the inner join...
+        if len(data) == 2:
+            data = (
+                pl.LazyFrame({"variable": data[0], "value": data[1]})
+                .with_columns(date_pulled=dt.now())
+                .join(relevant_variable_labels, how="left", on="variable")
+                .select(final_col_expr)
+            )
+
+        # for greater than 2 - dictionary into polars? would that work for both?
+
+        return data
 
     @computed_field
     @cached_property
-    def _var_labels(self) -> dict:
+    def _var_labels(self) -> pl.LazyFrame:
         """
         Fetches the human-readable variable labels
         as a list and caches it.
@@ -251,6 +282,7 @@ class APIData(BaseModel):
     # just ripping this straight over
     # geos need a rethink though
     # TODO make work for lazyframes
+    # TODO really need to reassess this...
     def ensure_column_exists(
         data: pl.LazyFrame | pl.DataFrame,
         column_name: list[str] = ["geo_id", "ucgid", "geo_name"],
