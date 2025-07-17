@@ -2,6 +2,7 @@ from typing import Annotated, List, Optional
 from urllib.parse import parse_qs, urlparse
 from functools import cached_property
 
+from datetime import datetime as dt
 import polars as pl
 from pydantic import (
     BaseModel,
