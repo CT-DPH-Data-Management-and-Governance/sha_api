@@ -189,24 +189,25 @@ class APIData(BaseModel):
             .collect()
             .explode("vars")
             .lazy()
+            .with_columns(
+                pl.col("vars").str.split("_").list.first().alias("group"),
+            )
         )
 
         relevant_variable_labels = self._var_labels.join(
-            endpoint_vars, how="inner", left_on="group", right_on="vars"
+            endpoint_vars, how="inner", on="group"
         )
 
         # data
-        final_col_expr = pl.col(
-            [
-                "variable",
-                "group",
-                "value",
-                "label",
-                "concept",
-                "universe",
-                "date_pulled",
-            ]
-        )
+        final_cols = [
+            "variable",
+            "group",
+            "value",
+            "label",
+            "concept",
+            "universe",
+            "date_pulled",
+        ]
 
         data = self._raw
 
@@ -217,10 +218,12 @@ class APIData(BaseModel):
                 pl.LazyFrame({"variable": data[0], "value": data[1]})
                 .with_columns(date_pulled=dt.now())
                 .join(relevant_variable_labels, how="left", on="variable")
-                .select(final_col_expr)
+                .select(final_cols)
             )
 
         # for greater than 2 - dictionary into polars? would that work for both?
+        if len(data) > 2:
+            pass
 
         return data
 
@@ -246,7 +249,7 @@ class APIData(BaseModel):
                 .with_columns(
                     pl.col("name").alias("variable"),
                     pl.col("name").str.split("_").list.first().alias("group"),
-                    pl.lit("unknown").alias("universe"),
+                    pl.lit("unknown as queried").alias("universe"),
                 )
                 .select(final_vars)
             )
