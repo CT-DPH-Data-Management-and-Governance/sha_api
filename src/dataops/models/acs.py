@@ -203,10 +203,34 @@ class APIData(BaseModel):
         endpoint = self.endpoint.variable_endpoint
         data = _get(endpoint, self.endpoint.dataset)
 
-        # TODO account for lists from
-        # last resort pulls
-        # and then account for dicts
-        # from targeted pulls
+        final_vars = ["variable", "label", "concept", "group", "universe"]
+
+        # Cherry-picked variables pull down the entire
+        # variable catalog as a list with less meta info
+        if isinstance(data, list):
+            data = (
+                pl.from_dicts(data)
+                .transpose(column_names="column_0")
+                .lazy()
+                .with_columns(
+                    pl.col("name").alias("variable"),
+                    pl.col("name").str.split("_").list.first().alias("group"),
+                    pl.lit("unknown").alias("universe"),
+                )
+                .select(final_vars)
+            )
+
+        # targeted variable endpoint yield more meta info
+        # and come back as a dictionary
+        if isinstance(data, dict):
+            data = (
+                pl.from_dicts(data.get("variables"))
+                .with_row_index(name="index")
+                .unpivot(index="index")
+                .lazy()
+                .with_columns(pl.col("value").struct.unnest())
+                .select(final_vars)
+            )
 
         return data
 
