@@ -223,7 +223,20 @@ class APIData(BaseModel):
 
         # for greater than 2 - dictionary into polars? would that work for both?
         if len(data) > 2:
-            pass
+            all_frames = []
+            variables = data[0]
+
+        for value in data[1:]:
+            lf = (
+                pl.LazyFrame({"variable": variables, "value": value})
+                .with_columns(date_pulled=dt.now())
+                .join(relevant_variable_labels, how="left", on="variable")
+                .select(final_cols)
+            )
+
+            all_frames.append(lf)
+
+        data = pl.concat(all_frames)
 
         return data
 
@@ -238,6 +251,8 @@ class APIData(BaseModel):
         data = _get(endpoint, self.endpoint.dataset)
 
         final_vars = ["variable", "label", "concept", "group", "universe"]
+        default_value = "unknown as queried"
+        col_name = "universe"
 
         # Cherry-picked variables pull down the entire
         # variable catalog as a list with less meta info
