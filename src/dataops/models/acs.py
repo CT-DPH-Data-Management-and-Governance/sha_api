@@ -169,17 +169,43 @@ class APIData(BaseModel):
         pass
 
     def fetch_lazyframe(self) -> pl.LazyFrame:
-        return self._raw()
+        """
+        Return a "non-tidy" polars LazyFrame of the
+        API Endpoint data with the human-readable
+        variable labels.
+        """
+
+        endpoint_vars = (
+            pl.LazyFrame({"vars": self.endpoint.variables})
+            .with_columns(
+                pl.col("vars")
+                .str.replace_all("\\(|\\)", " ")
+                .str.strip_chars()
+                .str.split(by=" ")
+            )
+            .select("vars")
+            .collect()
+            .to_series()
+            .explode()
+            .to_list()
+        )
+
+        return endpoint_vars
 
     @computed_field
     @cached_property
-    def _var_labels(self) -> list[str]:
+    def _var_labels(self) -> dict:
         """
         Fetches the human-readable variable labels
         as a list and caches it.
         """
         endpoint = self.endpoint.variable_endpoint
         data = _get(endpoint, self.endpoint.dataset)
+
+        # TODO account for lists from
+        # last resort pulls
+        # and then account for dicts
+        # from targeted pulls
 
         return data
 
