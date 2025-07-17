@@ -174,11 +174,22 @@ class APIData(BaseModel):
     @computed_field
     @cached_property
     def _var_labels(self) -> list[str]:
-        None
+        """
+        Fetches the human-readable variable labels
+        as a list and caches it.
+        """
+        endpoint = self.endpoint.variable_endpoint
+        data = _get(endpoint, self.endpoint.dataset)
+
+        return data
 
     @computed_field
     @cached_property
     def _raw(self) -> list[str]:
+        """
+        Fetches the raw data from the API and returns
+        it as a list and caches it.
+        """
         endpoint = self.endpoint.full_url
         dataset = self.endpoint.dataset
 
