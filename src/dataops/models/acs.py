@@ -1,5 +1,6 @@
 from typing import Annotated, List, Optional
 from urllib.parse import parse_qs, urlparse
+from functools import cached_property
 
 import polars as pl
 from pydantic import (
@@ -171,7 +172,12 @@ class APIData(BaseModel):
         return self._raw()
 
     @computed_field
-    @property
+    @cached_property
+    def _var_labels(self) -> list[str]:
+        None
+
+    @computed_field
+    @cached_property
     def _raw(self) -> list[str]:
         endpoint = self.endpoint.full_url
         dataset = self.endpoint.dataset
