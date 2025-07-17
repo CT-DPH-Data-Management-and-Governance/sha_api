@@ -249,7 +249,7 @@ class APIData(BaseModel):
                 .with_columns(
                     pl.col("name").alias("variable"),
                     pl.col("name").str.split("_").list.first().alias("group"),
-                    pl.lit("unknown as queried").alias("universe"),
+                    pl.lit(default_value).alias("universe"),
                 )
                 .select(final_vars)
             )
@@ -263,7 +263,11 @@ class APIData(BaseModel):
                 .unpivot(index="index")
                 .lazy()
                 .with_columns(pl.col("value").struct.unnest())
-                .select(final_vars)
+            )
+
+        if col_name not in data.collect_schema().names():
+            data = data.with_columns(pl.lit(default_value).alias(col_name)).select(
+                final_vars
             )
 
         return data
