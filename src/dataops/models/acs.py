@@ -167,11 +167,11 @@ class APIData(BaseModel):
         # return "no_concept"
         pass
 
-    @computed_field
-    @property
     def fetch_lazyframe(self) -> pl.LazyFrame:
         return self._raw()
 
+    @computed_field
+    @property
     def _raw(self) -> list[str]:
         endpoint = self.endpoint.full_url
         dataset = self.endpoint.dataset
