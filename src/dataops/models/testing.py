@@ -1,7 +1,7 @@
 from datetime import datetime as dt
 from dataops.models.acs import APIEndpoint as ae
 from dataops.models.acs import APIData as ad
-from dataops.portals import _get
+from dataops.api import _get
 
 import polars as pl
 
@@ -40,7 +40,17 @@ ideal.columns
 the_okay.head(1)
 the_okay.columns
 
-the_okay.with_columns()
+the_okay.with_columns(
+    pl.col("name").alias("variable"),
+).with_columns(
+    pl.col("variable")
+    .str.split("_")
+    .list.first()
+    .alias("group"),  # need to port over the var stuff later
+    pl.lit("unknown").alias("universe"),
+).drop("name")
+
+ideal.drop(["predicateType", "limit", "predicateOnly"])
 
 # for s tables
 # we get concept per question with targeted approach and with shotgun appch
