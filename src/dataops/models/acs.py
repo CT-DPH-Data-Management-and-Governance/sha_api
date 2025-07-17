@@ -198,7 +198,6 @@ class APIData(BaseModel):
             endpoint_vars, how="inner", on="group"
         )
 
-        # data
         final_cols = [
             "variable",
             "group",
@@ -209,10 +208,9 @@ class APIData(BaseModel):
             "date_pulled",
         ]
 
+        # all else fails return raw data
         data = self._raw
 
-        # TODO check if the "shotgun" approach loses the geometry with
-        # the inner join...
         if len(data) == 2:
             data = (
                 pl.LazyFrame({"variable": data[0], "value": data[1]})
@@ -221,7 +219,6 @@ class APIData(BaseModel):
                 .select(final_cols)
             )
 
-        # for greater than 2 - dictionary into polars? would that work for both?
         if len(data) > 2:
             all_frames = []
             variables = data[0]
