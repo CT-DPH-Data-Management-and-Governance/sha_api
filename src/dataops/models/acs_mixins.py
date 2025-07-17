@@ -64,6 +64,7 @@ class APIEndpointMixin:
     def variable_endpoint(self) -> str:
         """Constructs the variable API URL from the full url."""
 
+        # should be a catch-all that overpulls but a good backstop
         last_resort = f"{self.base_url}/{self.year}/{self.dataset}/variables"
 
         match self.table_type:
