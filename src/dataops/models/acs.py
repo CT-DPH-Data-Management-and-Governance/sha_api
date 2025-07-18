@@ -320,6 +320,6 @@ class APIData(BaseModel):
     def __repr__(self):
         return (
             f"APIData(\n\tendpoint='{self.endpoint.url_no_key}',\n"
-            f"\tconcept/s='{self.concept}', \n"
-            # f"\traw='{self.endpoint.variable_endpoint}',\n)"
+            f"\tconcept/s='{self.concept}'"  # , \n"
         )
+
