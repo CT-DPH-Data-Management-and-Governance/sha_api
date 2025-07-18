@@ -1,4 +1,4 @@
-from typing import Annotated, List, Optional
+from typing import Annotated, List
 from urllib.parse import parse_qs, urlparse
 from functools import cached_property
 
