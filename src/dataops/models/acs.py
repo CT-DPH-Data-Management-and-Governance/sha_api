@@ -1,4 +1,4 @@
-from typing import Annotated, List, Optional
+from typing import Annotated, List
 from urllib.parse import parse_qs, urlparse
 from functools import cached_property
 
@@ -30,7 +30,7 @@ class APIEndpoint(APIEndpointMixin, BaseModel):
     """
 
     # Core Endpoint Components
-    base_url: HttpUrl = Field(
+    base_url: HttpUrl | str = Field(
         default="https://api.census.gov/data",
         description="The base URL for the Census ACS API.",
     )
@@ -57,10 +57,13 @@ class APIEndpoint(APIEndpointMixin, BaseModel):
         ),
     ]
 
-    api_key: Optional[SecretStr] = Field(
-        repr=False,
-        description="Your Census API key. If not provided, it's sourced from the CENSUS_API_KEY environment variable.",
-    )
+    api_key: Annotated[
+        SecretStr | None,
+        Field(
+            repr=False,
+            description="Your Census API key. If not provided, it's sourced from the CENSUS_API_KEY environment variable.",
+        ),
+    ] = None
 
     def __repr__(self):
         return (
@@ -137,39 +140,72 @@ class APIData(BaseModel):
     from the Census Bureau API Endpoint.
     """
 
-    endpoint: APIEndpoint = Field(..., description="Census API endpoint")
+    endpoint: Annotated[APIEndpoint, Field(description="Census API endpoint")]
     # response codes?
     # raw
 
     model_config = SettingsConfigDict(arbitrary_types_allowed=True)
 
-    # TODO: the variables will be the computed var pull
-    # this till refer to that - so no _get here
-    # @computed_field
-    # @property
+    @computed_field
+    @cached_property
     def concept(self) -> str:
         """Endpoint ACS Concept"""
 
-        # TODO these all have concepts with the better var endpoint
-        # TODO add a fetch raw lf and then filter to concept
-        # ensure that they all get concepts
-        # if self.table_type != "detailed table":
-        # variable_endpoint = self.endpoint.variable_endpoint
-        # dataset = self.endpoint.dataset
+        return (
+            self._lazyframe.with_columns(
+                pl.col("variable").str.split("_").list.first().alias("first")
+            )
+            .filter(pl.col("first").eq(pl.col("group")))
+            .select(pl.col("concept"))
+            .unique()
+            .drop_nulls()
+            .select(pl.col("concept").implode())
+            .collect()
+            .item()
+            .to_list()
+        )
 
-        # data = _get(variable_endpoint, dataset)
-
-        # return (
-        #     self.endpoint.fetch_variable_labels()
-        #     .select(pl.col("concept").unique())
-        #     .item()
-        # )
-
-        # else:
-        # return "no_concept"
+    def _var_parse(self) -> pl.LazyFrame:
         pass
 
-    def fetch_lazyframe(self) -> pl.LazyFrame:
+    @computed_field
+    @property
+    def _extra(self) -> pl.LazyFrame:
+        """
+        Return the extra, often metadata or
+        geography-related rows from the LazyFrame.
+        """
+        return self._lazyframe.filter(
+            (~pl.col("variable").str.starts_with(pl.col("group")))
+            | (pl.col("group").is_null())
+        )
+
+    def fetch_tidyframe(self) -> pl.DataFrame:
+        """
+        Generate a tidy Polars DataFrame by removing extra rows and adding
+        geography information.
+
+        This method processes the LazyFrame associated with the APIData instance
+        to exclude metadata or geography-related rows, adds a geography column
+        based on the endpoint's geography attribute, and reindexes the rows.
+
+        Returns:
+            pl.DataFrame: A tidy Polars DataFrame with the processed data.
+        """
+        geos = self.endpoint.geography
+
+        no_extras = (
+            self._lazyframe.join(self._extra, on="row_id", how="anti")
+            .with_columns(pl.lit(geos).alias("geography"))
+            .drop("row_id")
+            .with_row_index("row_id")
+        )
+
+        return no_extras
+
+    @computed_field
+    @cached_property
+    def _lazyframe(self) -> pl.LazyFrame:
         """
         Return a "non-tidy" polars LazyFrame of the
         API Endpoint data with the human-readable
@@ -235,7 +271,7 @@ class APIData(BaseModel):
 
             data = pl.concat(all_frames)
 
-        return data
+        return data.with_row_index("row_id")
 
     @computed_field
     @cached_property
@@ -277,7 +313,7 @@ class APIData(BaseModel):
             )
 
             data = _ensure_column_exists(data, final_vars, default_value)
-            data.select(final_vars)
+            data = data.select(final_vars)
 
         return data
 
@@ -298,6 +334,5 @@ class APIData(BaseModel):
     def __repr__(self):
         return (
             f"APIData(\n\tendpoint='{self.endpoint.url_no_key}',\n"
-            # f"\tresponse='{self.concept}', \n"
-            # f"\traw='{self.endpoint.variable_endpoint}',\n)"
+            f"\tconcept/s='{self.concept}'"
         )
