@@ -181,7 +181,17 @@ class APIData(BaseModel):
         )
 
     def fetch_tidyframe(self) -> pl.DataFrame:
-        # wip
+        """
+        Generate a tidy Polars DataFrame by removing extra rows and adding
+        geography information.
+
+        This method processes the LazyFrame associated with the APIData instance
+        to exclude metadata or geography-related rows, adds a geography column
+        based on the endpoint's geography attribute, and reindexes the rows.
+
+        Returns:
+            pl.DataFrame: A tidy Polars DataFrame with the processed data.
+        """
         geos = self.endpoint.geography
 
         no_extras = (
