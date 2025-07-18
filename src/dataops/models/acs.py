@@ -223,17 +223,17 @@ class APIData(BaseModel):
             all_frames = []
             variables = data[0]
 
-        for value in data[1:]:
-            lf = (
-                pl.LazyFrame({"variable": variables, "value": value})
-                .with_columns(date_pulled=dt.now())
-                .join(relevant_variable_labels, how="left", on="variable")
-                .select(final_cols)
-            )
+            for value in data[1:]:
+                lf = (
+                    pl.LazyFrame({"variable": variables, "value": value})
+                    .with_columns(date_pulled=dt.now())
+                    .join(relevant_variable_labels, how="left", on="variable")
+                    .select(final_cols)
+                )
 
-            all_frames.append(lf)
+                all_frames.append(lf)
 
-        data = pl.concat(all_frames)
+            data = pl.concat(all_frames)
 
         return data
 
