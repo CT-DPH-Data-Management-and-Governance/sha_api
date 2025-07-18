@@ -231,7 +231,7 @@ class APIData(BaseModel):
                     .select(final_cols)
                 )
 
-                all_frames.append(lf)
+            all_frames.append(lf)
 
             data = pl.concat(all_frames)
 
