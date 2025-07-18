@@ -164,6 +164,9 @@ class APIData(BaseModel):
             .to_list()
         )
 
+    def _var_parse(self) -> pl.LazyFrame:
+        pass
+
     def _fetch_extra(self) -> pl.LazyFrame:
         """
         Return the extra, often metadata or
@@ -173,6 +176,20 @@ class APIData(BaseModel):
             (~pl.col("variable").str.starts_with(pl.col("group")))
             | (pl.col("group").is_null())
         )
+
+    def fetch_tidyframe(self) -> pl.DataFrame:
+        # wip
+        geos = self.endpoint.geography
+
+        extras = self._fetch_extra()
+
+        no_extras = (
+            self.fetch_lazyframe()
+            .join(extras, on="row_id", how="anti")
+            .with_columns(pl.lit(geos).alias("geography"))
+        )
+
+        return no_extras
 
     def fetch_lazyframe(self) -> pl.LazyFrame:
         """
