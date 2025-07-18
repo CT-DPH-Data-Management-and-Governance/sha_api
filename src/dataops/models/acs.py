@@ -17,10 +17,10 @@ from pydantic_settings import SettingsConfigDict
 
 from dataops.api import _get
 from dataops.models.acs_mixins import APIEndpointMixin
+from dataops._helpers import _ensure_column_exists
 
 # ideas /todoish
 # class APIVariable():
-# class for subj, btable, dp etc...
 
 
 class APIEndpoint(APIEndpointMixin, BaseModel):
@@ -249,7 +249,6 @@ class APIData(BaseModel):
 
         final_vars = ["variable", "label", "concept", "group", "universe"]
         default_value = "unknown as queried"
-        col_name = "universe"
 
         # Cherry-picked variables pull down the entire
         # variable catalog as a list with less meta info
@@ -277,10 +276,7 @@ class APIData(BaseModel):
                 .with_columns(pl.col("value").struct.unnest())
             )
 
-        if col_name not in data.collect_schema().names():
-            data = data.with_columns(pl.lit(default_value).alias(col_name)).select(
-                final_vars
-            )
+            data = _ensure_column_exists(data, final_vars, default_value)
 
         return data
 
@@ -295,21 +291,6 @@ class APIData(BaseModel):
         dataset = self.endpoint.dataset
 
         data = _get(endpoint, dataset)
-
-        return data
-
-    # just ripping this straight over
-    # geos need a rethink though
-    # TODO make work for lazyframes
-    # TODO really need to reassess this...
-    def ensure_column_exists(
-        data: pl.LazyFrame | pl.DataFrame,
-        column_name: list[str] = ["geo_id", "ucgid", "geo_name"],
-        default_value: any = "unknown",
-    ) -> pl.LazyFrame:
-        for col_name in column_name:
-            if col_name not in data.collect_schema().names().columns:
-                data = data.with_columns(pl.lit(default_value).alias(col_name))
 
         return data
 
