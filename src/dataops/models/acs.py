@@ -147,7 +147,7 @@ class APIData(BaseModel):
     model_config = SettingsConfigDict(arbitrary_types_allowed=True)
 
     @computed_field
-    @property
+    @cached_property
     def concept(self) -> str:
         """Endpoint ACS Concept"""
 
