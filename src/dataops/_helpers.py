@@ -4,7 +4,7 @@ import polars as pl
 def _ensure_column_exists(
     data: pl.LazyFrame | pl.DataFrame,
     column_name: list[str],
-    default_value: any = "unknown as queried",
+    default_value: str = "unknown as queried",
 ) -> pl.LazyFrame:
     for col_name in column_name:
         if col_name not in data.collect_schema().names():
