@@ -146,31 +146,23 @@ class APIData(BaseModel):
 
     model_config = SettingsConfigDict(arbitrary_types_allowed=True)
 
-    # TODO: the variables will be the computed var pull
-    # this till refer to that - so no _get here
-    # @computed_field
-    # @property
+    @computed_field
+    @property
     def concept(self) -> str:
         """Endpoint ACS Concept"""
 
-        # TODO these all have concepts with the better var endpoint
-        # TODO add a fetch raw lf and then filter to concept
-        # ensure that they all get concepts
-        # if self.table_type != "detailed table":
-        # variable_endpoint = self.endpoint.variable_endpoint
-        # dataset = self.endpoint.dataset
-
-        # data = _get(variable_endpoint, dataset)
-
-        # return (
-        #     self.endpoint.fetch_variable_labels()
-        #     .select(pl.col("concept").unique())
-        #     .item()
-        # )
-
-        # else:
-        # return "no_concept"
-        pass
+        return (
+            self.fetch_lazyframe()
+            .with_columns(pl.col("variable").str.split("_").list.first().alias("first"))
+            .filter(pl.col("first").eq(pl.col("group")))
+            .select(pl.col("concept"))
+            .unique()
+            .drop_nulls()
+            .select(pl.col("concept").implode())
+            .collect()
+            .item()
+            .to_list()
+        )
 
     def fetch_lazyframe(self) -> pl.LazyFrame:
         """
@@ -301,6 +293,6 @@ class APIData(BaseModel):
     def __repr__(self):
         return (
             f"APIData(\n\tendpoint='{self.endpoint.url_no_key}',\n"
-            # f"\tresponse='{self.concept}', \n"
+            f"\tconcept/s='{self.concept}', \n"
             # f"\traw='{self.endpoint.variable_endpoint}',\n)"
         )
