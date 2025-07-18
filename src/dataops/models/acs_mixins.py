@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 
 import requests
 from pydantic import (
@@ -22,7 +23,7 @@ class APIEndpointMixin:
 
     @model_validator(mode="before")
     @classmethod
-    def set_api_key_from_env(cls, data: any) -> any:
+    def set_api_key_from_env(cls, data: Any) -> Any:
         """Sets API key from env var if not provided."""
         if isinstance(data, dict) and not data.get("api_key"):
             data["api_key"] = settings.AppSettings().census.token.get_secret_value()
