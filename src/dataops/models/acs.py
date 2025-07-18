@@ -164,6 +164,16 @@ class APIData(BaseModel):
             .to_list()
         )
 
+    def _fetch_extra(self) -> pl.LazyFrame:
+        """
+        Return the extra, often metadata or
+        geography-related rows from the LazyFrame.
+        """
+        return self.fetch_lazyframe().filter(
+            (~pl.col("variable").str.starts_with(pl.col("group")))
+            | (pl.col("group").is_null())
+        )
+
     def fetch_lazyframe(self) -> pl.LazyFrame:
         """
         Return a "non-tidy" polars LazyFrame of the
