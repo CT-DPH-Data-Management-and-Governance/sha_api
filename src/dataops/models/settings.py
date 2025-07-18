@@ -1,6 +1,6 @@
-import dataops.models.configs as cfg
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+import dataops.models.configs as cfg
 
 
 class AppSettings(BaseSettings):
@@ -10,6 +10,6 @@ class AppSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_nested_delimiter="__")
 
-    user: cfg.UserConfig
+    account: cfg.AccountConfig
     api: cfg.APIConfig
     census: cfg.CensusConfig

@@ -1,36 +1,29 @@
-import polars as pl
-from dataops.models import settings
-from dataops.api import _get
+from typing import Annotated, List, Optional
+from urllib.parse import parse_qs, urlparse
+from functools import cached_property
 
-from enum import Enum
-from urllib.parse import urlparse, parse_qs
-import requests
-from typing import List, Optional, Annotated
+from datetime import datetime as dt
+import polars as pl
 from pydantic import (
     BaseModel,
-    HttpUrl,
     Field,
+    HttpUrl,
     SecretStr,
-    field_validator,
-    model_validator,
-    computed_field,
     ValidationError,
+    computed_field,
 )
+
+from pydantic_settings import SettingsConfigDict
+
+from dataops.api import _get
+from dataops.models.acs_mixins import APIEndpointMixin
+from dataops._helpers import _ensure_column_exists
 
 # ideas /todoish
 # class APIVariable():
-# class for subj, btable, dp etc...
-# user input vs application facing inputs models
 
 
-class TableType(str, Enum):
-    subject = "subject"
-    detailed = "detailed"
-    cprofile = "cprofile"
-    unknown = "unknown"
-
-
-class APIEndpoint(BaseModel):
+class APIEndpoint(APIEndpointMixin, BaseModel):
     """
     A Pydantic model to represent, validate, and interact with a
     U.S. Census Bureau's American Community Survey API endpoint.
@@ -69,95 +62,18 @@ class APIEndpoint(BaseModel):
         description="Your Census API key. If not provided, it's sourced from the CENSUS_API_KEY environment variable.",
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def set_api_key_from_env(cls, data: any) -> any:
-        """Sets API key from env var if not provided."""
-        if isinstance(data, dict) and not data.get("api_key"):
-            data["api_key"] = settings.AppSettings().census.token.get_secret_value()
-        return data
-
-    @field_validator("dataset")
-    @classmethod
-    def dataset_must_not_have_leading_or_trailing_slashes(cls, v: str) -> str:
-        """Ensures the dataset string is clean."""
-        return v.strip("/")
-
-    # --- Computed Properties for Functionality ---
-    @computed_field
-    @property
-    def full_url(self) -> str:
-        """Constructs the complete, queryable API URL from the model's attributes."""
-        get_params = ",".join(self.variables)
-        url_path = f"{self.base_url}/{self.year}/{self.dataset}"
-        geo_key, geo_value = self.geography.split(":", 1)
-        params = {"get": get_params, geo_key: geo_value}
-        if self.api_key:
-            params["key"] = self.api_key
-        req = requests.Request("GET", url_path, params=params)
-        return req.prepare().url
-
-    @computed_field
-    @property
-    def url_no_key(self) -> str:
-        """Constructs the complete, queryable API URL from the model's attributes."""
-        get_params = ",".join(self.variables)
-        url_path = f"{self.base_url}/{self.year}/{self.dataset}"
-        geo_key, geo_value = self.geography.split(":", 1)
-        params = {"get": get_params, geo_key: geo_value}
-        req = requests.Request("GET", url_path, params=params)
-        return req.prepare().url
-
-    # TODO: if groups add the groups to reduce api overshoot
-    @computed_field
-    @property
-    def variable_endpoint(self) -> str:
-        """Constructs the variable API URL from the full url."""
-
-        last_resort = f"{self.base_url}/{self.year}/{self.dataset}/variables"
-
-        # TODO then collapse at will with commas
-        # TODO test how multi-vars work with groups/
-
-        if self.table_type == "detailed table":
-            # f"{self.base_url}/{self.year}/{self.dataset}/groups/{self.variables}"
-            return last_resort
-
-        elif self.table_type == "subject table":
-            # TODO verify this again -  get table type in order as well
-            # f"{self.base_url}/{self.year}/{self.dataset}/{self.table_type}/{self.variables}"
-            return last_resort
-
-        # if all else fails return this
-
-        else:
-            return last_resort
-
-    @computed_field
-    @property
-    def table_type(self) -> str:
-        dataset_parts = self.dataset.strip("/").split("/")
-        last = dataset_parts[-1]
-        middle = dataset_parts[1]
-
-        _variable_string = "".join(self.variables)
-        _length = len(self.variables)
-        _starts_with = _variable_string.startswith("group")
-        _maybe_detailed = last == middle
-
-        _is_group = (_length < 2) & (_starts_with) & (_maybe_detailed)
-
-        if _is_group:
-            return TableType.detailed
-
-        else:
-            try:
-                tabletype = TableType[last]
-            except KeyError as e:
-                print(f"Unknown Table Type: {e}")
-                tabletype = TableType.unknown
-            finally:
-                return tabletype
+    def __repr__(self):
+        return (
+            f"APIEndpoint(\n\tdataset='{self.dataset}',\n"
+            f"\tbase_url='{self.base_url}', \n"
+            f"\ttable_type='{self.table_type.value}', \n"
+            f"\tyear='{self.year}', \n"
+            f"\tvariables='{self.variables}', \n"
+            f"\tgroup='{self.group}', \n"
+            f"\tgeography='{self.geography}', \n"
+            f"\turl_no_key='{self.url_no_key}', \n"
+            f"\tvariable_endpoint='{self.variable_endpoint}',\n)"
+        )
 
     # Alternative Constructor from URL
     @classmethod
@@ -179,7 +95,6 @@ class APIEndpoint(BaseModel):
 
             dataset = "/".join(path_parts[2:])
 
-            # TODO ensure this is usable with variable url
             variables = query_params.get("get", [""])[0].split(",")
 
             if not variables or variables == [""]:
@@ -215,33 +130,6 @@ class APIEndpoint(BaseModel):
                 f"Parsed URL components failed validation. Reason: {e}"
             ) from e
 
-    # TODO push stuff that requires a request elsewhere
-    # @computed_field
-    # @property
-    # def concept(self) -> str:
-    #     """Endpoint concept"""
-
-    #     if self.table_type != "not_table":
-    #         return (
-    #             self.fetch_variable_labels().select(pl.col("concept").unique()).item()
-    #         )
-
-    #     else:
-    #         return "no_concept"
-
-    def __repr__(self):
-        return (
-            f"APIEndpoint(\n\tdataset='{self.dataset}',\n"
-            f"\tbase_url='{self.base_url}', \n"
-            f"\ttable_type='{self.table_type}', \n"
-            # f"\tconcept='{self.concept}', \n"
-            f"\tyear='{self.year}', \n"
-            f"\tvariables='{self.variables}', \n"
-            f"\tgeography='{self.geography}', \n"
-            f"\turl_no_key='{self.url_no_key}', \n"
-            f"\tvariable_endpoint='{self.variable_endpoint}',\n)"
-        )
-
 
 class APIData(BaseModel):
     """
@@ -252,6 +140,8 @@ class APIData(BaseModel):
     endpoint: APIEndpoint = Field(..., description="Census API endpoint")
     # response codes?
     # raw
+
+    model_config = SettingsConfigDict(arbitrary_types_allowed=True)
 
     # TODO: the variables will be the computed var pull
     # this till refer to that - so no _get here
@@ -279,30 +169,128 @@ class APIData(BaseModel):
         # return "no_concept"
         pass
 
-    @computed_field
-    @property
     def fetch_lazyframe(self) -> pl.LazyFrame:
-        _data = self._fetch_raw()
+        """
+        Return a "non-tidy" polars LazyFrame of the
+        API Endpoint data with the human-readable
+        variable labels.
+        """
 
-    def _fetch_raw(self) -> list[str]:
+        # ensure you have the right variables
+        endpoint_vars = (
+            pl.LazyFrame({"vars": self.endpoint.variables})
+            .with_columns(
+                pl.col("vars")
+                .str.replace_all("\\(|\\)", " ")
+                .str.strip_chars()
+                .str.split(by=" ")
+            )
+            .select("vars")
+            .collect()
+            .explode("vars")
+            .lazy()
+            .with_columns(
+                pl.col("vars").str.split("_").list.first().alias("group"),
+            )
+        )
+
+        relevant_variable_labels = self._var_labels.join(
+            endpoint_vars, how="inner", on="group"
+        )
+
+        final_cols = [
+            "variable",
+            "group",
+            "value",
+            "label",
+            "concept",
+            "universe",
+            "date_pulled",
+        ]
+
+        # all else fails return raw data
+        data = self._raw
+
+        if len(data) == 2:
+            data = (
+                pl.LazyFrame({"variable": data[0], "value": data[1]})
+                .with_columns(date_pulled=dt.now())
+                .join(relevant_variable_labels, how="left", on="variable")
+                .select(final_cols)
+            )
+
+        if len(data) > 2:
+            all_frames = []
+            variables = data[0]
+
+            for value in data[1:]:
+                lf = (
+                    pl.LazyFrame({"variable": variables, "value": value})
+                    .with_columns(date_pulled=dt.now())
+                    .join(relevant_variable_labels, how="left", on="variable")
+                    .select(final_cols)
+                )
+
+            all_frames.append(lf)
+
+            data = pl.concat(all_frames)
+
+        return data
+
+    @computed_field
+    @cached_property
+    def _var_labels(self) -> pl.LazyFrame:
+        """
+        Fetches the human-readable variable labels
+        as a list and caches it.
+        """
+        endpoint = self.endpoint.variable_endpoint
+        data = _get(endpoint, self.endpoint.dataset)
+
+        final_vars = ["variable", "label", "concept", "group", "universe"]
+        default_value = "unknown as queried"
+
+        # Cherry-picked variables pull down the entire
+        # variable catalog as a list with less meta info
+        if isinstance(data, list):
+            data = (
+                pl.from_dicts(data)
+                .transpose(column_names="column_0")
+                .lazy()
+                .with_columns(
+                    pl.col("name").alias("variable"),
+                    pl.col("name").str.split("_").list.first().alias("group"),
+                    pl.lit(default_value).alias("universe"),
+                )
+                .select(final_vars)
+            )
+
+        # targeted variable endpoint yield more meta info
+        # and come back as a dictionary
+        if isinstance(data, dict):
+            data = (
+                pl.from_dicts(data.get("variables"))
+                .with_row_index(name="index")
+                .unpivot(index="index")
+                .lazy()
+                .with_columns(pl.col("value").struct.unnest())
+            )
+
+            data = _ensure_column_exists(data, final_vars, default_value)
+
+        return data
+
+    @computed_field
+    @cached_property
+    def _raw(self) -> list[str]:
+        """
+        Fetches the raw data from the API and returns
+        it as a list and caches it.
+        """
         endpoint = self.endpoint.full_url
         dataset = self.endpoint.dataset
 
         data = _get(endpoint, dataset)
-
-        return data
-
-    # just ripping this straight over
-    # geos need a rethink though
-    # TODO make work for lazyframes
-    def ensure_column_exists(
-        data: pl.LazyFrame | pl.DataFrame,
-        column_name: list[str] = ["geo_id", "ucgid", "geo_name"],
-        default_value: any = "unknown",
-    ) -> pl.LazyFrame:
-        for col_name in column_name:
-            if col_name not in data.collect_schema().names().columns:
-                data = data.with_columns(pl.lit(default_value).alias(col_name))
 
         return data
 

@@ -1,6 +1,7 @@
-from dataops.models import app
 import polars as pl
 from sodapy import Socrata
+
+from dataops.models import app
 
 
 def fetch_data(

@@ -1,28 +1,25 @@
+from typing import Annotated
+
 from pydantic import (
-    Field,
     BaseModel,
+    Field,
     SecretStr,
     field_validator,
 )
-from typing import Optional, Annotated
 
 
-class UserConfig(BaseModel):
+class AccountConfig(BaseModel):
     """Validates user-specific credentials."""
 
-    username: Annotated[
-        Optional[str], Field(default=None, description="Username or Email")
-    ]
-    password: Annotated[
-        Optional[SecretStr], Field(default=None, description="Password", repr=False)
-    ]
-    token: Optional[SecretStr] = Field(default=None, description="Socrata Token")
+    username: Annotated[str | None, Field(description="Username or Email")] = None
+    password: Annotated[SecretStr | None, Field(description="Password")] = None
+    token: Annotated[SecretStr | None, Field(description="Socrata Token")] = None
 
 
 class CensusConfig(BaseModel):
     """Validate Census API specific details."""
 
-    token: Optional[SecretStr] = Field(default=None, description="Census API Token")
+    token: Annotated[SecretStr | None, Field(description="Census API Token")] = None
 
 
 class SocrataTableID(BaseModel):
@@ -51,4 +48,4 @@ class APIConfig(BaseModel):
         description="Domain name for data portal platform.",
     )
     source: SocrataTableID
-    target: Optional[SocrataTableID] = Field(default=None)
+    target: SocrataTableID | None = None

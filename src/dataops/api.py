@@ -1,5 +1,6 @@
-import requests
 import sys
+
+import requests
 from pydantic import HttpUrl
 
 
