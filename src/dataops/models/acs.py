@@ -168,7 +168,9 @@ class APIData(BaseModel):
     def _var_parse(self) -> pl.LazyFrame:
         pass
 
-    def _fetch_extra(self) -> pl.LazyFrame:
+    @computed_field
+    @property
+    def _extra(self) -> pl.LazyFrame:
         """
         Return the extra, often metadata or
         geography-related rows from the LazyFrame.
@@ -182,10 +184,8 @@ class APIData(BaseModel):
         # wip
         geos = self.endpoint.geography
 
-        extras = self._fetch_extra()
-
         no_extras = (
-            self._lazyframe.join(extras, on="row_id", how="anti")
+            self._lazyframe.join(self._extra, on="row_id", how="anti")
             .with_columns(pl.lit(geos).alias("geography"))
             .drop("row_id")
             .with_row_index("row_id")
@@ -326,4 +326,3 @@ class APIData(BaseModel):
             f"APIData(\n\tendpoint='{self.endpoint.url_no_key}',\n"
             f"\tconcept/s='{self.concept}'"  # , \n"
         )
-
