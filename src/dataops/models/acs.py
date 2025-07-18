@@ -30,7 +30,7 @@ class APIEndpoint(APIEndpointMixin, BaseModel):
     """
 
     # Core Endpoint Components
-    base_url: HttpUrl = Field(
+    base_url: HttpUrl | str = Field(
         default="https://api.census.gov/data",
         description="The base URL for the Census ACS API.",
     )
@@ -57,10 +57,13 @@ class APIEndpoint(APIEndpointMixin, BaseModel):
         ),
     ]
 
-    api_key: Optional[SecretStr] = Field(
-        repr=False,
-        description="Your Census API key. If not provided, it's sourced from the CENSUS_API_KEY environment variable.",
-    )
+    api_key: Annotated[
+        SecretStr | None,
+        Field(
+            repr=False,
+            description="Your Census API key. If not provided, it's sourced from the CENSUS_API_KEY environment variable.",
+        ),
+    ] = None
 
     def __repr__(self):
         return (
@@ -137,7 +140,7 @@ class APIData(BaseModel):
     from the Census Bureau API Endpoint.
     """
 
-    endpoint: APIEndpoint = Field(..., description="Census API endpoint")
+    endpoint: Annotated[APIEndpoint, Field(description="Census API endpoint")]
     # response codes?
     # raw
 
@@ -277,7 +280,7 @@ class APIData(BaseModel):
             )
 
             data = _ensure_column_exists(data, final_vars, default_value)
-            data.select(final_vars)
+            data = data.select(final_vars)
 
         return data
 
