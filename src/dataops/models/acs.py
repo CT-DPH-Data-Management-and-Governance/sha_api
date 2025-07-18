@@ -277,6 +277,7 @@ class APIData(BaseModel):
             )
 
             data = _ensure_column_exists(data, final_vars, default_value)
+            data.select(final_vars)
 
         return data
 
