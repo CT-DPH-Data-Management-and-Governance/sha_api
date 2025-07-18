@@ -152,8 +152,9 @@ class APIData(BaseModel):
         """Endpoint ACS Concept"""
 
         return (
-            self.fetch_lazyframe()
-            .with_columns(pl.col("variable").str.split("_").list.first().alias("first"))
+            self._lazyframe.with_columns(
+                pl.col("variable").str.split("_").list.first().alias("first")
+            )
             .filter(pl.col("first").eq(pl.col("group")))
             .select(pl.col("concept"))
             .unique()
@@ -172,7 +173,7 @@ class APIData(BaseModel):
         Return the extra, often metadata or
         geography-related rows from the LazyFrame.
         """
-        return self.fetch_lazyframe().filter(
+        return self._lazyframe.filter(
             (~pl.col("variable").str.starts_with(pl.col("group")))
             | (pl.col("group").is_null())
         )
@@ -184,14 +185,17 @@ class APIData(BaseModel):
         extras = self._fetch_extra()
 
         no_extras = (
-            self.fetch_lazyframe()
-            .join(extras, on="row_id", how="anti")
+            self._lazyframe.join(extras, on="row_id", how="anti")
             .with_columns(pl.lit(geos).alias("geography"))
+            .drop("row_id")
+            .with_row_index("row_id")
         )
 
         return no_extras
 
-    def fetch_lazyframe(self) -> pl.LazyFrame:
+    @computed_field
+    @cached_property
+    def _lazyframe(self) -> pl.LazyFrame:
         """
         Return a "non-tidy" polars LazyFrame of the
         API Endpoint data with the human-readable
