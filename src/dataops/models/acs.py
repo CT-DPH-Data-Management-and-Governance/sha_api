@@ -240,7 +240,7 @@ class APIData(BaseModel):
 
             data = pl.concat(all_frames)
 
-        return data
+        return data.with_row_index("row_id")
 
     @computed_field
     @cached_property
