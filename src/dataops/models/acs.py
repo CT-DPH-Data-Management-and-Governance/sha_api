@@ -166,6 +166,17 @@ class APIData(BaseModel):
         )
 
     def _var_parse(self) -> pl.LazyFrame:
+        if self.endpoint.table_type.value == "subject":
+            pass
+
+        if self.endpoint.table_type.value == "detailed":
+            data = self._lazyframe.with_columns(
+                pl.col("variable")
+                .str.split_exact(by="_", n=1)
+                .struct.rename_fields(["table_id", "line_id"])
+                .alias("parts")
+            )
+
         pass
 
     @computed_field
